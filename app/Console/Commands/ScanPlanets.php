@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\OgamePlanet;
+use App\Services\OgameApiClient;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class ScanPlanets extends Command
@@ -21,19 +21,12 @@ class ScanPlanets extends Command
         $baseUrl = \App\Support\OgameUniverse::baseUrlFor($universeId, $region);
         $baseUrl = rtrim($baseUrl, '/');
 
-        $url = $baseUrl . '/api/universe.xml';
-        $this->info('Descargando ' . $url);
+        $this->info('Descargando ' . $baseUrl . '/api/universe.xml');
 
-        $response = Http::timeout(60)->get($url);
-        if (! $response->ok()) {
-            $this->error('HTTP error ' . $response->status());
-            return self::FAILURE;
-        }
-
-        $xml = $response->body();
-        $sx = @simplexml_load_string($xml);
-        if (! $sx) {
-            $this->error('XML invalido.');
+        try {
+            $planets = app(OgameApiClient::class)->fetchUniverse($baseUrl);
+        } catch (\Throwable $e) {
+            $this->error('Error: ' . $e->getMessage());
             return self::FAILURE;
         }
 
@@ -42,7 +35,7 @@ class ScanPlanets extends Command
         $total = 0;
         $chunkSize = 1000;
 
-        foreach ($sx->planet as $planet) {
+        foreach ($planets as $planet) {
             $rows[] = [
                 'universe_id' => $universeId,
                 'ogame_id' => (string) ($planet['id'] ?? ''),
@@ -50,7 +43,7 @@ class ScanPlanets extends Command
                 'galaxy' => (int) ($planet['galaxy'] ?? 0),
                 'system' => (int) ($planet['system'] ?? 0),
                 'position' => (int) ($planet['position'] ?? 0),
-                'player_id' => (string) ($planet['player'] ?? ''),
+                'player_id' => (string) ($planet['player_id'] ?? ''),
                 'last_scan_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,

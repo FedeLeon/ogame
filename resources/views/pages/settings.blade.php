@@ -2,6 +2,18 @@
     $selectedUniverse = \App\Support\OgameUniverse::getUniverse();
     $selectedRegion = \App\Support\OgameUniverse::getRegion();
     $selectedBaseUrl = \App\Support\OgameUniverse::baseUrlFor($selectedUniverse, $selectedRegion);
+    $flagMap = [
+        'ar' => '🇦🇷',
+        'br' => '🇧🇷',
+        'mx' => '🇲🇽',
+        'es' => '🇪🇸',
+        'us' => '🇺🇸',
+        'de' => '🇩🇪',
+        'fr' => '🇫🇷',
+        'it' => '🇮🇹',
+        'pl' => '🇵🇱',
+        'tr' => '🇹🇷',
+    ];
 @endphp
 @extends('layouts.app')
 
@@ -15,16 +27,16 @@
             <label>
                 Pais
                 <select name="region" required>
-                    <option value="ar" @selected($selectedRegion === 'ar')>Argentina</option>
-                    <option value="br" @selected($selectedRegion === 'br')>Brasil</option>
-                    <option value="mx" @selected($selectedRegion === 'mx')>Mexico</option>
-                    <option value="es" @selected($selectedRegion === 'es')>España</option>
-                    <option value="us" @selected($selectedRegion === 'us')>Estados Unidos</option>
-                    <option value="de" @selected($selectedRegion === 'de')>Alemania</option>
-                    <option value="fr" @selected($selectedRegion === 'fr')>Francia</option>
-                    <option value="it" @selected($selectedRegion === 'it')>Italia</option>
-                    <option value="pl" @selected($selectedRegion === 'pl')>Polonia</option>
-                    <option value="tr" @selected($selectedRegion === 'tr')>Turquia</option>
+                    <option value="ar" @selected($selectedRegion === 'ar')>{{ $flagMap['ar'] }} Argentina</option>
+                    <option value="br" @selected($selectedRegion === 'br')>{{ $flagMap['br'] }} Brasil</option>
+                    <option value="mx" @selected($selectedRegion === 'mx')>{{ $flagMap['mx'] }} Mexico</option>
+                    <option value="es" @selected($selectedRegion === 'es')>{{ $flagMap['es'] }} España</option>
+                    <option value="us" @selected($selectedRegion === 'us')>{{ $flagMap['us'] }} Estados Unidos</option>
+                    <option value="de" @selected($selectedRegion === 'de')>{{ $flagMap['de'] }} Alemania</option>
+                    <option value="fr" @selected($selectedRegion === 'fr')>{{ $flagMap['fr'] }} Francia</option>
+                    <option value="it" @selected($selectedRegion === 'it')>{{ $flagMap['it'] }} Italia</option>
+                    <option value="pl" @selected($selectedRegion === 'pl')>{{ $flagMap['pl'] }} Polonia</option>
+                    <option value="tr" @selected($selectedRegion === 'tr')>{{ $flagMap['tr'] }} Turquia</option>
                 </select>
             </label>
             <label>

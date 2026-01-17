@@ -3,6 +3,7 @@
 use App\Support\OgameUniverse;
 use App\Models\AppSetting;
 use App\Models\OgameAlliance;
+use App\Models\OgamePlanet;
 use App\Models\OgamePlayer;
 use App\Services\OgameApiClient;
 use Illuminate\Http\Request;
@@ -20,8 +21,47 @@ use Illuminate\Support\Carbon;
 |
 */
 
-Route::get('/', function () {
-    return view('pages.home');
+Route::get('/', function (Request $request, OgameApiClient $apiClient) {
+    $serverData = null;
+    $serverError = null;
+
+    if (OgameUniverse::isConfigured()) {
+        $universe = OgameUniverse::getUniverse();
+        $region = OgameUniverse::getRegion();
+        $baseUrl = OgameUniverse::baseUrlFor($universe, $region);
+
+        $dataKey = 'ogame.server_data.' . $region . '.' . $universe;
+        $scanKey = 'ogame.server_data_last_scan_at.' . $region . '.' . $universe;
+        $lastScanValue = AppSetting::query()->where('key', $scanKey)->value('value');
+        $lastScan = $lastScanValue ? Carbon::parse($lastScanValue) : null;
+        $needsSync = ! $lastScan || $lastScan->diffInHours(now()) >= 6;
+
+        if ($request->boolean('refresh') || $needsSync) {
+            try {
+                $serverData = $apiClient->fetchServerData($baseUrl);
+                AppSetting::query()->updateOrCreate(
+                    ['key' => $dataKey],
+                    ['value' => json_encode($serverData)]
+                );
+                AppSetting::query()->updateOrCreate(
+                    ['key' => $scanKey],
+                    ['value' => now()->toIso8601String()]
+                );
+            } catch (\Throwable $e) {
+                $serverError = $e->getMessage();
+            }
+        } else {
+            $cached = AppSetting::query()->where('key', $dataKey)->value('value');
+            if ($cached) {
+                $serverData = json_decode($cached, true);
+            }
+        }
+    }
+
+    return view('pages.home', [
+        'serverData' => $serverData,
+        'serverError' => $serverError,
+    ]);
 })->name('home');
 
 Route::view('/login', 'pages.login')->name('login');
@@ -256,7 +296,122 @@ Route::get('/player', function (Request $request, OgameApiClient $apiClient) {
         'allianceFilter' => $allianceFilter,
     ]);
 })->name('player');
-Route::view('/planets', 'pages.coming-soon', ['title' => 'Planetas (buscar)'])->name('planets');
+Route::get('/planets', function (Request $request, OgameApiClient $apiClient) {
+    if (! OgameUniverse::isConfigured()) {
+        return redirect()->route('home')->with('status', 'Configura tu universo primero.');
+    }
+
+    $universe = OgameUniverse::getUniverse();
+    $region = OgameUniverse::getRegion();
+    $baseUrl = OgameUniverse::baseUrlFor($universe, $region);
+
+    $settingKey = 'ogame.planets_last_scan_at.' . $region . '.' . $universe;
+    $lastScanValue = AppSetting::query()->where('key', $settingKey)->value('value');
+    $lastScan = $lastScanValue ? Carbon::parse($lastScanValue) : null;
+    $needsSync = ! $lastScan || $lastScan->diffInDays(now()) >= 7;
+
+    if ($request->boolean('refresh') || $needsSync) {
+        try {
+            $rows = $apiClient->fetchUniverse($baseUrl);
+            $now = now();
+            $payload = [];
+            foreach ($rows as $row) {
+                if ($row['id'] === '') {
+                    continue;
+                }
+                $payload[] = [
+                    'universe_id' => $universe,
+                    'ogame_id' => $row['id'],
+                    'name' => $row['name'],
+                    'galaxy' => $row['galaxy'],
+                    'system' => $row['system'],
+                    'position' => $row['position'],
+                    'player_id' => $row['player_id'],
+                    'last_scan_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if (count($payload)) {
+                foreach (array_chunk($payload, 1000) as $chunk) {
+                    OgamePlanet::query()->upsert(
+                        $chunk,
+                        ['universe_id', 'ogame_id'],
+                        ['name', 'galaxy', 'system', 'position', 'player_id', 'last_scan_at', 'updated_at']
+                    );
+                }
+            }
+
+            AppSetting::query()->updateOrCreate(
+                ['key' => $settingKey],
+                ['value' => $now->toIso8601String()]
+            );
+            $lastScan = $now;
+        } catch (\Throwable $e) {
+            return back()->with('status', 'Error al sincronizar planetas: ' . $e->getMessage());
+        }
+    }
+
+    $galaxy = (int) $request->query('galaxy', 0);
+    $system = (int) $request->query('system', 0);
+    $position = (int) $request->query('position', 0);
+    $planetName = trim((string) $request->query('planet', ''));
+    $playerName = trim((string) $request->query('player', ''));
+    $onlyOccupied = $request->boolean('occupied');
+
+    $planetsQuery = OgamePlanet::query()
+        ->where('ogame_planets.universe_id', $universe)
+        ->leftJoin('ogame_players', function ($join) {
+            $join->on('ogame_planets.player_id', '=', 'ogame_players.ogame_id')
+                ->on('ogame_planets.universe_id', '=', 'ogame_players.universe_id');
+        })
+        ->select([
+            'ogame_planets.*',
+            'ogame_players.name as player_name',
+        ])
+        ->orderBy('galaxy')
+        ->orderBy('system')
+        ->orderBy('position');
+
+    if ($galaxy > 0) {
+        $planetsQuery->where('ogame_planets.galaxy', $galaxy);
+    }
+    if ($system > 0) {
+        $planetsQuery->where('ogame_planets.system', $system);
+    }
+    if ($position > 0) {
+        $planetsQuery->where('ogame_planets.position', $position);
+    }
+    if ($planetName !== '') {
+        $planetsQuery->where('ogame_planets.name', 'like', '%' . $planetName . '%');
+    }
+    if ($playerName !== '') {
+        $planetsQuery->where('ogame_players.name', 'like', '%' . $playerName . '%');
+    }
+    if ($onlyOccupied) {
+        $planetsQuery->whereNotNull('ogame_planets.player_id')
+            ->where('ogame_planets.player_id', '<>', '');
+    }
+
+    $planets = $planetsQuery->paginate(50)->withQueryString();
+
+    return view('pages.planets', [
+        'universe' => $universe,
+        'region' => $region,
+        'baseUrl' => $baseUrl,
+        'planets' => $planets,
+        'lastScan' => $lastScan ? $lastScan->toDateTimeString() : null,
+        'filters' => [
+            'galaxy' => $galaxy,
+            'system' => $system,
+            'position' => $position,
+            'planet' => $planetName,
+            'player' => $playerName,
+            'occupied' => $onlyOccupied,
+        ],
+    ]);
+})->name('planets');
 Route::view('/inactives', 'pages.coming-soon', ['title' => 'Inactivos cerca'])->name('inactives');
 Route::view('/distance', 'pages.coming-soon', ['title' => 'Distancia'])->name('distance');
 Route::view('/api', 'pages.coming-soon', ['title' => 'API raw'])->name('api');
