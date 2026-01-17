@@ -44,6 +44,9 @@ class ScanPlanets extends Command
                 'system' => (int) ($planet['system'] ?? 0),
                 'position' => (int) ($planet['position'] ?? 0),
                 'player_id' => (string) ($planet['player_id'] ?? ''),
+                'moon_id' => (string) ($planet['moon_id'] ?? ''),
+                'moon_name' => (string) ($planet['moon_name'] ?? ''),
+                'moon_size' => (int) ($planet['moon_size'] ?? 0),
                 'last_scan_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -71,7 +74,7 @@ class ScanPlanets extends Command
         OgamePlanet::upsert(
             $rows,
             ['universe_id', 'ogame_id'],
-            ['name', 'galaxy', 'system', 'position', 'player_id', 'last_scan_at', 'updated_at']
+            ['name', 'galaxy', 'system', 'position', 'player_id', 'moon_id', 'moon_name', 'moon_size', 'last_scan_at', 'updated_at']
         );
     }
 }

@@ -3,9 +3,7 @@
         'home' => ['label' => 'Inicio', 'route' => 'home', 'icon' => 'home'],
         'player' => ['label' => 'Jugador', 'route' => 'player', 'icon' => 'user'],
         'planets' => ['label' => 'Planetas', 'route' => 'planets', 'icon' => 'planet'],
-        'inactives' => ['label' => 'Inactivos', 'route' => 'inactives', 'icon' => 'idle'],
-        'distance' => ['label' => 'Distancia', 'route' => 'distance', 'icon' => 'distance'],
-        'api' => ['label' => 'API', 'route' => 'api', 'icon' => 'api'],
+        'metrics' => ['label' => 'Metricas', 'route' => 'metrics', 'icon' => 'metrics'],
     ];
     $current = $current ?? request()->route()?->getName();
 
@@ -16,8 +14,37 @@
         'idle' => '<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 4a8 8 0 1 0 8 8 8 8 0 0 0-8-8Zm0 14a6 6 0 1 1 6-6 6 6 0 0 1-6 6Z"/><path fill="currentColor" d="M11 7h2v6h-2zm0 8h2v2h-2z"/></svg>',
         'distance' => '<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 12a2 2 0 1 0 2-2 2 2 0 0 0-2 2Zm7 0a2 2 0 1 0 2-2 2 2 0 0 0-2 2Zm7 0a2 2 0 1 0 2-2 2 2 0 0 0-2 2Z"/></svg>',
         'api' => '<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 7h10v2H7zm0 4h10v2H7zm0 4h10v2H7z"/></svg>',
+        'metrics' => '<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 19h16v2H4zM6 10h3v7H6zm5-4h3v11h-3zm5 2h3v9h-3z"/></svg>',
         'settings' => '<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm9 4a7.9 7.9 0 0 0-.2-1.7l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-3-1.7l-.4-2.7h-4l-.4 2.7a8 8 0 0 0-3 1.7l-2.5-1-2 3.4 2.1 1.6A7.9 7.9 0 0 0 3 12a7.9 7.9 0 0 0 .2 1.7l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 3 1.7l.4 2.7h4l.4-2.7a8 8 0 0 0 3-1.7l2.5 1 2-3.4-2.1-1.6A7.9 7.9 0 0 0 21 12Z"/></svg>',
     ];
+
+    $region = \App\Support\OgameUniverse::getRegion();
+    $universeNumber = \App\Support\OgameUniverse::getUniverse();
+    $flagMap = [
+        'ar' => '🇦🇷',
+        'br' => '🇧🇷',
+        'mx' => '🇲🇽',
+        'es' => '🇪🇸',
+        'us' => '🇺🇸',
+        'de' => '🇩🇪',
+        'fr' => '🇫🇷',
+        'it' => '🇮🇹',
+        'pl' => '🇵🇱',
+        'tr' => '🇹🇷',
+    ];
+    $regionFlag = $flagMap[$region] ?? '';
+    $serverName = null;
+    if (\Illuminate\Support\Facades\Schema::hasTable('app_settings')) {
+        $key = 'ogame.server_data.' . $region . '.' . $universeNumber;
+        $cached = \App\Models\AppSetting::query()->where('key', $key)->value('value');
+        if ($cached) {
+            $decoded = json_decode($cached, true);
+            if (is_array($decoded) && ! empty($decoded['name'])) {
+                $serverName = $decoded['name'];
+            }
+        }
+    }
+    $serverLabel = $serverName ?: ('Universo ' . $universeNumber);
 @endphp
 <!doctype html>
 <html lang="es">
@@ -28,6 +55,18 @@
     <link rel="stylesheet" href="/assets/styles.css" />
 </head>
 <body>
+<header class="topbar">
+    <div class="topbar-left">
+        @if ($regionFlag)
+            <span class="flag">{{ $regionFlag }}</span>
+        @endif
+        <span class="topbar-title">{{ $serverLabel }}</span>
+    </div>
+    <div class="topbar-right">
+        <span class="topbar-time" data-time>{{ now()->format('H:i') }}</span>
+    </div>
+</header>
+
 <div class="wrap">
     <nav>
         @foreach ($tabs as $tab)
@@ -53,5 +92,19 @@
 <footer class="footer">
     Cache local en archivos (para no saturar la API). Versión Laravel 10.
 </footer>
+<script>
+    (function () {
+        const el = document.querySelector('[data-time]');
+        if (!el) return;
+        function tick() {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            el.textContent = `${hh}:${mm}`;
+        }
+        tick();
+        setInterval(tick, 60000);
+    })();
+</script>
 </body>
 </html>

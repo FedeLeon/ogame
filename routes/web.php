@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
 Route::get('/', function (Request $request, OgameApiClient $apiClient) {
     $serverData = null;
     $serverError = null;
+    $selfPlayer = null;
+    $selfPlanets = [];
 
     if (OgameUniverse::isConfigured()) {
         $universe = OgameUniverse::getUniverse();
@@ -56,11 +58,38 @@ Route::get('/', function (Request $request, OgameApiClient $apiClient) {
                 $serverData = json_decode($cached, true);
             }
         }
+
+        $selfKey = 'ogame.self_player_id.' . $region . '.' . $universe;
+        $selfId = AppSetting::query()->where('key', $selfKey)->value('value');
+        if ($selfId) {
+            $selfPlayer = OgamePlayer::query()
+                ->where('universe_id', $universe)
+                ->where('ogame_id', $selfId)
+                ->withCount('planets')
+                ->first();
+
+            if ($selfPlayer) {
+                $selfPlanets = OgamePlanet::query()
+                    ->where('universe_id', $universe)
+                    ->where('player_id', $selfPlayer->ogame_id)
+                    ->orderBy('galaxy')
+                    ->orderBy('system')
+                    ->orderBy('position')
+                    ->get(['galaxy', 'system', 'position'])
+                    ->map(function ($planet) {
+                        return $planet->galaxy . ':' . $planet->system . ':' . $planet->position;
+                    })
+                    ->values()
+                    ->all();
+            }
+        }
     }
 
     return view('pages.home', [
         'serverData' => $serverData,
         'serverError' => $serverError,
+        'selfPlayer' => $selfPlayer,
+        'selfPlanets' => $selfPlanets,
     ]);
 })->name('home');
 
@@ -70,13 +99,27 @@ Route::post('/login', function () {
 })->name('login.submit');
 
 Route::get('/settings', function () {
-    return view('pages.settings');
+    $universe = OgameUniverse::getUniverse();
+    $region = OgameUniverse::getRegion();
+    $players = OgamePlayer::query()
+        ->where('universe_id', $universe)
+        ->orderBy('name')
+        ->get(['ogame_id', 'name']);
+
+    $selfKey = 'ogame.self_player_id.' . $region . '.' . $universe;
+    $selfId = AppSetting::query()->where('key', $selfKey)->value('value');
+
+    return view('pages.settings', [
+        'players' => $players,
+        'selfId' => $selfId,
+    ]);
 })->name('settings');
 
 Route::post('/settings', function (Request $request) {
     $selected = (string) $request->input('universe', '');
     $selected = preg_replace('/\D/', '', $selected ?? '');
     $region = strtolower(trim((string) $request->input('region', '')));
+    $selfId = trim((string) $request->input('self_player_id', ''));
 
     if ($selected === '' || $region === '') {
         return back()->with('status', 'Universo o region invalida.');
@@ -91,6 +134,23 @@ Route::post('/settings', function (Request $request) {
     $request->session()->put('region', $region);
     OgameUniverse::storeUniverse($selected);
     OgameUniverse::storeRegion($region);
+
+    $selfKey = 'ogame.self_player_id.' . $region . '.' . $selected;
+    if ($selfId !== '') {
+        $exists = OgamePlayer::query()
+            ->where('universe_id', $selected)
+            ->where('ogame_id', $selfId)
+            ->exists();
+        if (! $exists) {
+            return back()->with('status', 'Jugador seleccionado no existe en el universo.');
+        }
+        AppSetting::query()->updateOrCreate(
+            ['key' => $selfKey],
+            ['value' => $selfId]
+        );
+    } else {
+        AppSetting::query()->where('key', $selfKey)->delete();
+    }
 
     return redirect()->route('home')->with('status', 'Configuracion actualizada.');
 })->name('settings.save');
@@ -258,6 +318,7 @@ Route::get('/player', function (Request $request, OgameApiClient $apiClient) {
     $selectedId = (string) $request->query('id', '');
     $selectedPlayer = null;
     $selectedMetrics = null;
+    $selectedCoords = [];
 
     if ($selectedId !== '') {
         $selectedPlayer = OgamePlayer::query()
@@ -269,6 +330,18 @@ Route::get('/player', function (Request $request, OgameApiClient $apiClient) {
         if ($selectedPlayer) {
             $alliance = $alliances->get($selectedPlayer->alliance_id);
             $allianceLabel = $alliance ? trim(($alliance->tag ? $alliance->tag . ' - ' : '') . $alliance->name) : '—';
+            $selectedCoords = OgamePlanet::query()
+                ->where('universe_id', $universe)
+                ->where('player_id', $selectedPlayer->ogame_id)
+                ->orderBy('galaxy')
+                ->orderBy('system')
+                ->orderBy('position')
+                ->get(['galaxy', 'system', 'position'])
+                ->map(function ($planet) {
+                    return $planet->galaxy . ':' . $planet->system . ':' . $planet->position;
+                })
+                ->values()
+                ->all();
             $selectedMetrics = [
                 'planets' => $selectedPlayer->planets_count ?? 0,
                 'status' => $selectedPlayer->status ?: '—',
@@ -286,6 +359,7 @@ Route::get('/player', function (Request $request, OgameApiClient $apiClient) {
         'alliances' => $alliances,
         'selectedPlayer' => $selectedPlayer,
         'selectedMetrics' => $selectedMetrics,
+        'selectedCoords' => $selectedCoords,
         'totalPlayers' => $totalPlayers,
         'inactiveCount' => $inactiveCount,
         'vacationCount' => $vacationCount,
@@ -327,6 +401,9 @@ Route::get('/planets', function (Request $request, OgameApiClient $apiClient) {
                     'system' => $row['system'],
                     'position' => $row['position'],
                     'player_id' => $row['player_id'],
+                    'moon_id' => $row['moon_id'],
+                    'moon_name' => $row['moon_name'],
+                    'moon_size' => $row['moon_size'],
                     'last_scan_at' => $now,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -338,7 +415,7 @@ Route::get('/planets', function (Request $request, OgameApiClient $apiClient) {
                     OgamePlanet::query()->upsert(
                         $chunk,
                         ['universe_id', 'ogame_id'],
-                        ['name', 'galaxy', 'system', 'position', 'player_id', 'last_scan_at', 'updated_at']
+                        ['name', 'galaxy', 'system', 'position', 'player_id', 'moon_id', 'moon_name', 'moon_size', 'last_scan_at', 'updated_at']
                     );
                 }
             }
@@ -412,6 +489,231 @@ Route::get('/planets', function (Request $request, OgameApiClient $apiClient) {
         ],
     ]);
 })->name('planets');
-Route::view('/inactives', 'pages.coming-soon', ['title' => 'Inactivos cerca'])->name('inactives');
-Route::view('/distance', 'pages.coming-soon', ['title' => 'Distancia'])->name('distance');
-Route::view('/api', 'pages.coming-soon', ['title' => 'API raw'])->name('api');
+
+Route::get('/metrics', function (Request $request, OgameApiClient $apiClient) {
+    if (! OgameUniverse::isConfigured()) {
+        return redirect()->route('home')->with('status', 'Configura tu universo primero.');
+    }
+
+    $universe = OgameUniverse::getUniverse();
+    $region = OgameUniverse::getRegion();
+    $baseUrl = OgameUniverse::baseUrlFor($universe, $region);
+
+    $category = (int) $request->query('category', 1);
+    $type = (int) $request->query('type', 0);
+    $page = (int) $request->query('page', 1);
+    $category = in_array($category, [1, 2], true) ? $category : 1;
+    $type = ($type >= 0 && $type <= 7) ? $type : 0;
+    $page = ($page >= 1 && $page <= 400) ? $page : 1;
+
+    $perPage = 50;
+    $apiPageSize = 100;
+    $apiPage = (int) ceil(($page * $perPage) / $apiPageSize);
+    $apiOffset = (($page - 1) * $perPage) % $apiPageSize;
+
+    $cacheKey = 'ogame.highscore.' . $region . '.' . $universe . '.' . $category . '.' . $apiPage;
+    $cacheStampKey = $cacheKey . '.ts';
+
+    $data = null;
+    $error = null;
+
+    $lastScanValue = AppSetting::query()->where('key', $cacheStampKey)->value('value');
+    $lastScan = $lastScanValue ? Carbon::parse($lastScanValue) : null;
+    $needsSync = ! $lastScan || $lastScan->diffInHours(now()) >= 6;
+
+    if ($request->boolean('refresh') || $needsSync) {
+        try {
+            $rowsByType = [];
+            for ($t = 0; $t <= 7; $t++) {
+                $rowsByType[$t] = $apiClient->fetchHighscore($baseUrl, $category, $t, $apiPage);
+            }
+
+            $index = [];
+            foreach ($rowsByType as $t => $rows) {
+                foreach ($rows as $row) {
+                    $id = $row['id'];
+                    if ($id === '') {
+                        continue;
+                    }
+                    if (! isset($index[$id])) {
+                        $index[$id] = [
+                            'id' => $id,
+                            'position' => $row['position'],
+                            'scores' => [],
+                        ];
+                    }
+                    $index[$id]['scores'][$t] = $row['score'];
+                }
+            }
+
+            $data = array_values($index);
+            usort($data, function ($a, $b) {
+                return ($a['position'] ?? 0) <=> ($b['position'] ?? 0);
+            });
+
+            AppSetting::query()->updateOrCreate(
+                ['key' => $cacheKey],
+                ['value' => json_encode($data)]
+            );
+            AppSetting::query()->updateOrCreate(
+                ['key' => $cacheStampKey],
+                ['value' => now()->toIso8601String()]
+            );
+        } catch (\Throwable $e) {
+            $error = $e->getMessage();
+        }
+    } else {
+        $cached = AppSetting::query()->where('key', $cacheKey)->value('value');
+        if ($cached) {
+            $data = json_decode($cached, true);
+        }
+    }
+
+    $data = is_array($data) ? $data : [];
+    $pageRows = array_slice($data, $apiOffset, $perPage);
+
+    $summaryKey = 'ogame.highscore.summary.' . $region . '.' . $universe . '.' . $category . '.' . $type;
+    $summaryStampKey = $summaryKey . '.ts';
+    $summaryUniverse = null;
+    $summaryScanValue = AppSetting::query()->where('key', $summaryStampKey)->value('value');
+    $summaryScan = $summaryScanValue ? Carbon::parse($summaryScanValue) : null;
+    $summaryNeedsSync = ! $summaryScan || $summaryScan->diffInHours(now()) >= 12;
+
+    if ($request->boolean('refresh') || $summaryNeedsSync) {
+        try {
+            $scores = [];
+            for ($p = 1; $p <= 200; $p++) {
+                try {
+                    $rows = $apiClient->fetchHighscore($baseUrl, $category, $type, $p);
+                } catch (\Throwable $e) {
+                    // If the API fails on higher pages, keep what we already have.
+                    break;
+                }
+                if (count($rows) === 0) {
+                    break;
+                }
+                foreach ($rows as $row) {
+                    $scores[] = $row['score'] ?? 0;
+                }
+                if (count($rows) < 100) {
+                    break;
+                }
+            }
+
+            $summaryUniverse = [
+                'count' => count($scores),
+                'max' => $scores ? max($scores) : 0,
+                'min' => $scores ? min($scores) : 0,
+                'avg' => $scores ? (int) floor(array_sum($scores) / count($scores)) : 0,
+                'median' => $scores ? (function ($vals) {
+                    sort($vals);
+                    $count = count($vals);
+                    $mid = (int) floor($count / 2);
+                    return $count % 2 ? $vals[$mid] : (int) floor(($vals[$mid - 1] + $vals[$mid]) / 2);
+                })($scores) : 0,
+            ];
+
+            AppSetting::query()->updateOrCreate(
+                ['key' => $summaryKey],
+                ['value' => json_encode($summaryUniverse)]
+            );
+            AppSetting::query()->updateOrCreate(
+                ['key' => $summaryStampKey],
+                ['value' => now()->toIso8601String()]
+            );
+        } catch (\Throwable $e) {
+            // Keep summary empty on errors.
+        }
+    } else {
+        $cachedSummary = AppSetting::query()->where('key', $summaryKey)->value('value');
+        if ($cachedSummary) {
+            $summaryUniverse = json_decode($cachedSummary, true);
+        }
+    }
+
+    $summaryUniverse = is_array($summaryUniverse) ? $summaryUniverse : [
+        'count' => 0,
+        'max' => 0,
+        'min' => 0,
+        'avg' => 0,
+        'median' => 0,
+    ];
+
+    $metrics = [];
+    if ($category === 1 && count($pageRows) > 0) {
+        $ratiosMilEco = [];
+        $ratiosResEco = [];
+        $totalScores = [];
+        $top10Scores = [];
+
+        foreach ($pageRows as $row) {
+            $economy = $row['scores'][1] ?? 0;
+            $military = $row['scores'][3] ?? 0;
+            $research = $row['scores'][2] ?? 0;
+            if ($economy > 0) {
+                $ratiosMilEco[] = $military / $economy;
+                $ratiosResEco[] = $research / $economy;
+            }
+            $totalScores[] = $row['scores'][0] ?? 0;
+        }
+
+        rsort($totalScores);
+        $top10Scores = array_slice($totalScores, 0, 10);
+        $sumTotal = array_sum($totalScores);
+        $sumTop10 = array_sum($top10Scores);
+
+        $metrics[] = ['label' => 'Ratio militar/economia promedio', 'value' => $ratiosMilEco ? number_format(array_sum($ratiosMilEco) / count($ratiosMilEco), 2) : '—'];
+        $metrics[] = ['label' => 'Ratio investigacion/economia promedio', 'value' => $ratiosResEco ? number_format(array_sum($ratiosResEco) / count($ratiosResEco), 2) : '—'];
+        $metrics[] = ['label' => 'Concentracion Top 10 (total)', 'value' => $sumTotal > 0 ? number_format(($sumTop10 / $sumTotal) * 100, 2) . '%' : '—'];
+                $metrics[] = ['label' => 'Max / mediana', 'value' => $summaryUniverse['median'] > 0 ? number_format($summaryUniverse['max'] / $summaryUniverse['median'], 2) : '—'];
+    }
+
+    $nameMap = [];
+    if ($category === 1) {
+        $nameMap = OgamePlayer::query()
+            ->where('universe_id', $universe)
+            ->pluck('name', 'ogame_id')
+            ->all();
+    } else {
+        $nameMap = OgameAlliance::query()
+            ->where('universe_id', $universe)
+            ->get(['ogame_id', 'name', 'tag'])
+            ->mapWithKeys(function ($row) {
+                $label = trim(($row->tag ? $row->tag . ' - ' : '') . $row->name);
+                return [$row->ogame_id => $label];
+            })
+            ->all();
+    }
+
+    $typeLabels = [
+        0 => 'Total',
+        1 => 'Economia',
+        2 => 'Investigacion',
+        3 => 'Militar',
+        4 => 'Militar construido',
+        5 => 'Militar destruido',
+        6 => 'Militar perdido',
+        7 => 'Honor',
+    ];
+
+    $categoryLabels = [
+        1 => 'Jugadores',
+        2 => 'Alianzas',
+    ];
+
+    return view('pages.metrics', [
+        'category' => $category,
+        'type' => $type,
+        'page' => $page,
+        'data' => $pageRows,
+        'summaryUniverse' => $summaryUniverse,
+        'lastScan' => $lastScan ? $lastScan->toDateTimeString() : null,
+        'typeLabels' => $typeLabels,
+        'categoryLabels' => $categoryLabels,
+        'error' => $error,
+        'metrics' => $metrics,
+        'perPage' => $perPage,
+        'apiPage' => $apiPage,
+        'nameMap' => $nameMap,
+    ]);
+})->name('metrics');

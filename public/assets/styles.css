@@ -4,6 +4,19 @@ body { margin: 0; background: #0b1020; color: #e9ecff; }
 .header h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: .2px; }
 .header .sub { margin-top: 6px; font-size: 12px; opacity: .85; line-height: 1.4; }
 
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #0f1730;
+  border-bottom: 1px solid #243055;
+}
+
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.topbar-title { font-size: 14px; font-weight: 700; letter-spacing: .2px; }
+.topbar-time { font-size: 12px; opacity: .85; }
+
 .wrap { display: grid; grid-template-columns: 260px 1fr; gap: 14px; padding: 14px; }
 nav { background: #0f1730; border: 1px solid #243055; border-radius: 10px; overflow: hidden; height: fit-content; }
 .navlink { display:flex; align-items:center; gap: 8px; padding: 10px 12px; color: inherit; text-decoration:none; border-bottom: 1px solid #243055; font-size: 13px; }
@@ -96,6 +109,25 @@ th { text-align: left; font-size: 12px; opacity: .9; }
 .badge.suspended { background: #20161a; color: #f0b6c5; border-color: #4a2a34; }
 .badge.under-attack { background: #2a1411; color: #ffb19a; border-color: #5a2c20; }
 .badge.unknown { background: #1f2436; color: #cbd6ff; border-color: #2f3a5a; }
+
+.coord-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  columns: 1;
+}
+
+.coord-list li {
+  padding: 2px 0;
+}
+
+.title-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  opacity: .9;
+}
 
 .onboarding {
   position: fixed;

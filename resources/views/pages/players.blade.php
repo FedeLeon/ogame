@@ -32,10 +32,10 @@
 
 @section('content')
     <div class="card">
-        <h2>Jugadores del universo {{ $universe }}</h2>
-        <p class="muted">
-            Region {{ strtoupper($region) }} · Base {{ $baseUrl }}
-        </p>
+        <h2>
+            <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-7 2-7 4v2h14v-2c0-2-3-4-7-4Z"/></svg>
+            Jugadores del universo {{ $universe }}
+        </h2>
         <div class="kpis">
             <div class="kpi">
                 <div class="t">Total</div>
@@ -54,9 +54,14 @@
                 <div class="v mono">{{ $bannedCount }}</div>
             </div>
         </div>
-        <div class="muted" style="margin-top:10px">
-            Ultima sincronizacion: <span class="mono">{{ $lastScan ?? '—' }}</span>
-            · <a class="navlink" href="{{ route('player', ['refresh' => 1]) }}">Actualizar ahora</a>
+        <div class="muted" style="margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span>Ultima sincronizacion: <span class="mono">{{ $lastScan ?? '—' }}</span></span>
+            <a class="btn success" href="{{ route('player', ['refresh' => 1]) }}">
+                <svg class="icon-refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M3 12a9 9 0 0 1 15.55-6.36L21 3v6h-6l2.17-2.17A7 7 0 1 0 19 12h2a9 9 0 0 1-18 0Z"/>
+                </svg>
+                Refrescar
+            </a>
         </div>
     </div>
 
@@ -146,6 +151,20 @@
                     <div class="kpi">
                         <div class="t">Planetas</div>
                         <div class="v mono">{{ $selectedMetrics['planets'] }}</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="t">Coordenadas</div>
+                        <div class="v">
+                            @if (count($selectedCoords))
+                                <ul class="coord-list mono">
+                                    @foreach ($selectedCoords as $coord)
+                                        <li>{{ $coord }}</li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <span class="mono">—</span>
+                            @endif
+                        </div>
                     </div>
                     <div class="kpi">
                         <div class="t">Status</div>

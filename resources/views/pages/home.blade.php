@@ -1,10 +1,11 @@
 @php
     $selectedUniverse = \App\Support\OgameUniverse::getUniverse();
     $selectedRegion = \App\Support\OgameUniverse::getRegion();
-    $selectedBaseUrl = \App\Support\OgameUniverse::baseUrlFor($selectedUniverse, $selectedRegion);
     $isConfigured = \App\Support\OgameUniverse::isConfigured();
     $serverData = $serverData ?? null;
     $serverError = $serverError ?? null;
+    $selfPlayer = $selfPlayer ?? null;
+    $selfPlanets = $selfPlanets ?? [];
     $flagMap = [
         'ar' => '🇦🇷',
         'br' => '🇧🇷',
@@ -97,7 +98,6 @@
                                 Universo
                                 <input type="number" name="universe" placeholder="164" required />
                             </label>
-                            <p class="muted" data-preview style="margin-top:10px"></p>
                             <div class="row" style="margin-top:10px">
                                 <button class="btn secondary" type="button" data-step-back>Atras</button>
                                 <button class="btn" type="submit">Guardar</button>
@@ -110,7 +110,10 @@
     @endif
 
     <div class="card">
-        <h2>Universo elegido</h2>
+        <h2>
+            <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3 3 10v10h6v-6h6v6h6V10z"/></svg>
+            Universo elegido
+        </h2>
         <div class="kpis">
             <div class="kpi">
                 <div class="t">Region</div>
@@ -125,22 +128,63 @@
                 <div class="t">Universo</div>
                 <div class="v mono">{{ $selectedUniverse }}</div>
             </div>
-            <div class="kpi">
-                <div class="t">Base URL</div>
-                <div class="v mono">{{ $selectedBaseUrl }}</div>
-            </div>
         </div>
     </div>
 
     <div class="card" style="margin-top:12px">
-        <h3>Login OGame</h3>
+        <h3>
+            <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-7 2-7 4v2h14v-2c0-2-3-4-7-4Z"/></svg>
+            Login OGame
+        </h3>
         <p class="muted">Conectate a tu cuenta para acceder a datos adicionales.</p>
         <a class="btn" href="{{ route('login') }}">Ir al login</a>
     </div>
 
     <div class="card" style="margin-top:12px">
+        <h3>
+            <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-7 2-7 4v2h14v-2c0-2-3-4-7-4Z"/></svg>
+            Mi perfil
+        </h3>
+        @if ($selfPlayer)
+            <div class="kpis">
+                <div class="kpi">
+                    <div class="t">Jugador</div>
+                    <div class="v mono">{{ $selfPlayer->name }}</div>
+                </div>
+                <div class="kpi">
+                    <div class="t">Status</div>
+                    <div class="v mono">{{ $selfPlayer->status ?: '—' }}</div>
+                </div>
+                <div class="kpi">
+                    <div class="t">Planetas</div>
+                    <div class="v mono">{{ $selfPlayer->planets_count }}</div>
+                </div>
+                <div class="kpi">
+                    <div class="t">Coordenadas</div>
+                    <div class="v">
+                        @if (count($selfPlanets))
+                            <ul class="coord-list mono">
+                                @foreach ($selfPlanets as $coord)
+                                    <li>{{ $coord }}</li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <span class="mono">—</span>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        @else
+            <p class="muted">Selecciona tu usuario en Configuracion para ver tu perfil.</p>
+        @endif
+    </div>
+
+    <div class="card" style="margin-top:12px">
         <div class="card-header">
-            <h3>Server Data</h3>
+            <h3>
+                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 7h10v2H7zm0 4h10v2H7zm0 4h10v2H7z"/></svg>
+                Server Data
+            </h3>
             <a class="btn success" href="{{ route('home', ['refresh' => 1]) }}">
                 <svg class="icon-refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path fill="currentColor" d="M3 12a9 9 0 0 1 15.55-6.36L21 3v6h-6l2.17-2.17A7 7 0 1 0 19 12h2a9 9 0 0 1-18 0Z"/>
@@ -288,35 +332,18 @@
                 const backBtn = form.querySelector('[data-step-back]');
                 const regionSelect = form.querySelector('select[name="region"]');
                 const universeInput = form.querySelector('input[name="universe"]');
-                const preview = form.querySelector('[data-preview]');
-                const baseTemplate = @json(config('ogame.base_url_template'));
-
                 function showStep(step) {
                     steps.forEach((el) => {
                         el.hidden = el.getAttribute('data-step') !== String(step);
                     });
                 }
 
-                function updatePreview() {
-                    const region = regionSelect.value;
-                    const universe = universeInput.value;
-                    if (!region || !universe) {
-                        preview.textContent = '';
-                        return;
-                    }
-                    const url = baseTemplate.replace('{universe}', universe).replace('{region}', region);
-                    preview.textContent = 'Base URL: ' + url;
-                }
-
                 nextBtn.addEventListener('click', () => {
                     if (!regionSelect.value) return;
                     showStep(2);
-                    updatePreview();
                 });
 
                 backBtn.addEventListener('click', () => showStep(1));
-                universeInput.addEventListener('input', updatePreview);
-                regionSelect.addEventListener('change', updatePreview);
             })();
         </script>
     @endif

@@ -16,6 +16,9 @@ class OgamePlanet extends Model
         'system',
         'position',
         'player_id',
+        'moon_id',
+        'moon_name',
+        'moon_size',
         'last_scan_at',
     ];
 

@@ -1,7 +1,6 @@
 @php
     $selectedUniverse = \App\Support\OgameUniverse::getUniverse();
     $selectedRegion = \App\Support\OgameUniverse::getRegion();
-    $selectedBaseUrl = \App\Support\OgameUniverse::baseUrlFor($selectedUniverse, $selectedRegion);
     $flagMap = [
         'ar' => '🇦🇷',
         'br' => '🇧🇷',
@@ -14,12 +13,17 @@
         'pl' => '🇵🇱',
         'tr' => '🇹🇷',
     ];
+    $selfId = $selfId ?? '';
+    $players = $players ?? collect();
 @endphp
 @extends('layouts.app')
 
 @section('content')
     <div class="card">
-        <h2>Configuracion</h2>
+        <h2>
+            <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm9 4a7.9 7.9 0 0 0-.2-1.7l2.1-1.6-2-3.4-2.5 1a8 8 0 0 0-3-1.7l-.4-2.7h-4l-.4 2.7a8 8 0 0 0-3 1.7l-2.5-1-2 3.4 2.1 1.6A7.9 7.9 0 0 0 3 12a7.9 7.9 0 0 0 .2 1.7l-2.1 1.6 2 3.4 2.5-1a8 8 0 0 0 3 1.7l.4 2.7h4l.4-2.7a8 8 0 0 0 3-1.7l2.5 1 2-3.4-2.1-1.6A7.9 7.9 0 0 0 21 12Z"/></svg>
+            Configuracion
+        </h2>
         <p class="muted">Actualiza tu region y universo cuando quieras.</p>
 
         <form method="post" action="{{ route('settings.save') }}" class="row" style="margin-top:10px">
@@ -43,11 +47,17 @@
                 Universo
                 <input type="number" name="universe" value="{{ $selectedUniverse }}" required />
             </label>
+            <label>
+                Mi usuario
+                <input type="text" name="self_player_id" list="player-list" value="{{ $selfId }}" placeholder="Escribi tu usuario" />
+                <datalist id="player-list">
+                    @foreach ($players as $player)
+                        <option value="{{ $player->ogame_id }}">{{ $player->name }}</option>
+                    @endforeach
+                </datalist>
+            </label>
             <button class="btn" type="submit">Guardar</button>
         </form>
 
-        <div class="muted" style="margin-top:10px">
-            Base URL actual: <span class="mono">{{ $selectedBaseUrl }}</span>
-        </div>
     </div>
 @endsection

@@ -2,13 +2,18 @@
 
 @section('content')
     <div class="card">
-        <h2>Escaneo de planetas</h2>
-        <p class="muted">
-            Universo {{ $universe }} · Region {{ strtoupper($region) }} · Base {{ $baseUrl }}
-        </p>
-        <div class="muted" style="margin-top:10px">
-            Ultima sincronizacion: <span class="mono">{{ $lastScan ?? '—' }}</span>
-            · <a class="navlink" href="{{ route('planets', ['refresh' => 1]) }}">Actualizar ahora</a>
+        <h2>
+            <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 4a8 8 0 1 0 8 8 8 8 0 0 0-8-8Zm0 14a6 6 0 1 1 6-6 6 6 0 0 1-6 6Z"/><path fill="currentColor" d="M2 13c4-2 10-3 20-1v2c-10-2-16-1-20 1z"/></svg>
+            Escaneo de planetas
+        </h2>
+        <div class="muted" style="margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span>Ultima sincronizacion: <span class="mono">{{ $lastScan ?? '—' }}</span></span>
+            <a class="btn success" href="{{ route('planets', ['refresh' => 1]) }}">
+                <svg class="icon-refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M3 12a9 9 0 0 1 15.55-6.36L21 3v6h-6l2.17-2.17A7 7 0 1 0 19 12h2a9 9 0 0 1-18 0Z"/>
+                </svg>
+                Refrescar
+            </a>
         </div>
     </div>
 
@@ -53,6 +58,7 @@
                 <tr>
                     <th>Coords</th>
                     <th>Planeta</th>
+                    <th>Luna</th>
                     <th>Jugador</th>
                     <th>ID jugador</th>
                 </tr>
@@ -62,12 +68,19 @@
                     <tr>
                         <td class="mono">{{ $planet->galaxy }}:{{ $planet->system }}:{{ $planet->position }}</td>
                         <td>{{ $planet->name ?: '—' }}</td>
+                        <td class="mono">
+                            @if ($planet->moon_id)
+                                {{ $planet->moon_name ?: 'Luna' }} ({{ $planet->moon_size }})
+                            @else
+                                —
+                            @endif
+                        </td>
                         <td>{{ $planet->player_name ?: '—' }}</td>
                         <td class="mono">{{ $planet->player_id ?: '—' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="muted">Sin resultados.</td>
+                        <td colspan="5" class="muted">Sin resultados.</td>
                     </tr>
                 @endforelse
             </tbody>
