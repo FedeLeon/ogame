@@ -1,42 +1,55 @@
 <?php
-declare(strict_types=1);
 
-require __DIR__ . '/../src/Config.php';
-require __DIR__ . '/../src/HttpClient.php';
-require __DIR__ . '/../src/Cache/FileCache.php';
-require __DIR__ . '/../src/Ogame/Endpoints.php';
-require __DIR__ . '/../src/Ogame/OgameApi.php';
-require __DIR__ . '/../src/Util/Coords.php';
-require __DIR__ . '/../src/Util/Html.php';
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 
-use App\Config;
-use App\HttpClient;
-use App\Cache\FileCache;
-use App\Ogame\OgameApi;
-use App\Util\Html;
+define('LARAVEL_START', microtime(true));
 
-$api = new OgameApi(
-    new HttpClient(),
-    new FileCache(Config::CACHE_DIR),
-    Config::OGAME_BASE_URL
-);
+/*
+|--------------------------------------------------------------------------
+| Check If The Application Is Under Maintenance
+|--------------------------------------------------------------------------
+|
+| If the application is in maintenance / demo mode via the "down" command
+| we will load this file so that any pre-rendered content can be shown
+| instead of starting the framework, which could cause an exception.
+|
+*/
 
-$page = (string)($_GET['page'] ?? 'home');
-$allowed = ['home','player','planets','inactives','distance','api'];
-if (!in_array($page, $allowed, true)) {
-    $page = 'home';
+if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+    require $maintenance;
 }
 
-$viewFile = __DIR__ . '/../views/pages/' . $page . '.php';
+/*
+|--------------------------------------------------------------------------
+| Register The Auto Loader
+|--------------------------------------------------------------------------
+|
+| Composer provides a convenient, automatically generated class loader for
+| this application. We just need to utilize it! We'll simply require it
+| into the script here so we don't need to manually load our classes.
+|
+*/
 
-$ctx = [
-    'page' => $page,
-    'api'  => $api,
-    'get'  => $_GET,
-];
+require __DIR__.'/../vendor/autoload.php';
 
-ob_start();
-require $viewFile;
-$content = (string)ob_get_clean();
+/*
+|--------------------------------------------------------------------------
+| Run The Application
+|--------------------------------------------------------------------------
+|
+| Once we have the application, we can handle the incoming request using
+| the application's HTTP kernel. Then, we will send the response back
+| to this client's browser, allowing them to enjoy our application.
+|
+*/
 
-require __DIR__ . '/../views/layout.php';
+$app = require_once __DIR__.'/../bootstrap/app.php';
+
+$kernel = $app->make(Kernel::class);
+
+$response = $kernel->handle(
+    $request = Request::capture()
+)->send();
+
+$kernel->terminate($request, $response);

@@ -41,10 +41,14 @@ th { text-align: left; font-size: 12px; opacity: .9; }
 
 .alert { padding: 10px; border-radius: 10px; margin-top: 10px; border: 1px solid #243055; }
 .alert.err { background: #2a1118; border-color: #5a2030; color: #ffb3c0; }
+.alert.ok { background: #14211a; border-color: #1f3b2a; color: #b6f0c5; }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .footer { padding: 12px 18px; font-size: 12px; opacity: .75; }
+
+.header-tools { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.header-tools .label { font-size: 12px; opacity: .85; }
 
 @media (max-width: 980px) {
   .wrap { grid-template-columns: 1fr; }
