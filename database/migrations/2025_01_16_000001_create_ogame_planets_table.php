@@ -17,6 +17,9 @@ return new class extends Migration
             $table->unsignedSmallInteger('system');
             $table->unsignedTinyInteger('position');
             $table->string('player_id', 32)->nullable();
+            $table->string('moon_id', 32)->nullable();
+            $table->string('moon_name')->nullable();
+            $table->unsignedInteger('moon_size')->default(0);
             $table->timestamp('last_scan_at')->nullable();
             $table->timestamps();
 

@@ -134,15 +134,6 @@
     <div class="card" style="margin-top:12px">
         <h3>
             <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-7 2-7 4v2h14v-2c0-2-3-4-7-4Z"/></svg>
-            Login OGame
-        </h3>
-        <p class="muted">Conectate a tu cuenta para acceder a datos adicionales.</p>
-        <a class="btn" href="{{ route('login') }}">Ir al login</a>
-    </div>
-
-    <div class="card" style="margin-top:12px">
-        <h3>
-            <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-7 2-7 4v2h14v-2c0-2-3-4-7-4Z"/></svg>
             Mi perfil
         </h3>
         @if ($selfPlayer)

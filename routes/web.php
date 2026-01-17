@@ -5,10 +5,15 @@ use App\Models\AppSetting;
 use App\Models\OgameAlliance;
 use App\Models\OgamePlanet;
 use App\Models\OgamePlayer;
+use App\Models\OgameOverviewSnapshot;
 use App\Services\OgameApiClient;
+use App\Services\OgameHtmlParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,6 +31,10 @@ Route::get('/', function (Request $request, OgameApiClient $apiClient) {
     $serverError = null;
     $selfPlayer = null;
     $selfPlanets = [];
+    $defaultUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    $authData = [
+        'cookie_header' => '',
+    ];
 
     if (OgameUniverse::isConfigured()) {
         $universe = OgameUniverse::getUniverse();
@@ -83,6 +92,17 @@ Route::get('/', function (Request $request, OgameApiClient $apiClient) {
                     ->all();
             }
         }
+
+        $authKeyPrefix = 'ogame.auth.' . $region . '.' . $universe;
+        $cookieEncrypted = AppSetting::query()->where('key', $authKeyPrefix . '.cookie')->value('value');
+        if ($cookieEncrypted) {
+            try {
+                $authData['cookie_header'] = decrypt($cookieEncrypted);
+            } catch (Throwable $e) {
+                $authData['cookie_header'] = '';
+            }
+        }
+        $authData['user_agent'] = $defaultUserAgent;
     }
 
     return view('pages.home', [
@@ -90,13 +110,332 @@ Route::get('/', function (Request $request, OgameApiClient $apiClient) {
         'serverError' => $serverError,
         'selfPlayer' => $selfPlayer,
         'selfPlanets' => $selfPlanets,
+        'authData' => $authData,
+        'defaultUserAgent' => $defaultUserAgent,
     ]);
 })->name('home');
 
-Route::view('/login', 'pages.login')->name('login');
+Route::get('/login', function () {
+    $defaultUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    $authData = [
+        'cookie_header' => '',
+    ];
+
+    if (OgameUniverse::isConfigured()) {
+        $universe = OgameUniverse::getUniverse();
+        $region = OgameUniverse::getRegion();
+        $authKeyPrefix = 'ogame.auth.' . $region . '.' . $universe;
+        $cookieEncrypted = AppSetting::query()->where('key', $authKeyPrefix . '.cookie')->value('value');
+        if ($cookieEncrypted) {
+            try {
+                $authData['cookie_header'] = decrypt($cookieEncrypted);
+            } catch (Throwable $e) {
+                $authData['cookie_header'] = '';
+            }
+        }
+        $authData['user_agent'] = $defaultUserAgent;
+    }
+
+    return view('pages.login', [
+        'authData' => $authData,
+        'defaultUserAgent' => $defaultUserAgent,
+    ]);
+})->name('login');
 Route::post('/login', function () {
-    return back()->with('status', 'Login pendiente de implementar.');
+    $universe = OgameUniverse::getUniverse();
+    $region = OgameUniverse::getRegion();
+
+    $cookieHeader = trim((string) request('cookie_header', ''));
+    $defaultUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    $userAgent = $defaultUserAgent;
+
+    if ($cookieHeader === '') {
+        return back()->withInput()->with('status', 'Falta el header Cookie.');
+    }
+
+    $keyPrefix = 'ogame.auth.' . $region . '.' . $universe;
+    AppSetting::query()->updateOrCreate(
+        ['key' => $keyPrefix . '.cookie'],
+        ['value' => encrypt($cookieHeader)]
+    );
+
+    AppSetting::query()->updateOrCreate(
+        ['key' => $keyPrefix . '.user_agent'],
+        ['value' => $userAgent]
+    );
+
+    return back()->with('status', 'Credenciales guardadas.');
 })->name('login.submit');
+
+Route::post('/login/test', function (Request $request) {
+    if (! OgameUniverse::isConfigured()) {
+        return back()->with('status', 'Configura tu universo primero.');
+    }
+
+    $universe = OgameUniverse::getUniverse();
+    $region = OgameUniverse::getRegion();
+    $defaultUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+    $cookieHeader = trim((string) $request->input('cookie_header', ''));
+    $userAgent = $defaultUserAgent;
+
+    $keyPrefix = 'ogame.auth.' . $region . '.' . $universe;
+    if ($cookieHeader === '') {
+        $cookieEncrypted = AppSetting::query()->where('key', $keyPrefix . '.cookie')->value('value');
+        if ($cookieEncrypted) {
+            try {
+                $cookieHeader = decrypt($cookieEncrypted);
+            } catch (Throwable $e) {
+                $cookieHeader = '';
+            }
+        }
+    }
+
+    if ($cookieHeader === '') {
+        return back()->withInput()->with('status', 'Falta el header Cookie.');
+    }
+
+    $testUrl = OgameUniverse::baseUrlFor($universe, $region) . '/game/index.php?page=ingame&component=overview';
+    try {
+        $response = Http::withHeaders([
+            'Cookie' => $cookieHeader,
+            'User-Agent' => $userAgent,
+            'Accept' => 'text/html,application/xhtml+xml',
+        ])->timeout(30)->get($testUrl);
+    } catch (Throwable $e) {
+        return back()->withInput()->with('login_test', [
+            'ok' => false,
+            'status' => 'error',
+            'login_detected' => '—',
+            'snippet' => 'Error: ' . $e->getMessage(),
+        ]);
+    }
+
+    $body = (string) $response->body();
+    $parsed = OgameHtmlParser::parseOverviewHtml($body);
+    $loginDetected = $parsed['is_lobby'] || Str::contains($body, 'page=login') || Str::contains($body, 'login');
+    $snippet = Str::limit(trim(preg_replace('/\s+/', ' ', strip_tags($body))), 400, '...');
+    $details = [];
+
+    $resourcesSummary = '';
+    if (! empty($parsed['resources'])) {
+        $parts = [];
+        if (isset($parsed['resources']['metal'])) {
+            $parts[] = 'M ' . number_format((int) $parsed['resources']['metal']);
+        }
+        if (isset($parsed['resources']['crystal'])) {
+            $parts[] = 'C ' . number_format((int) $parsed['resources']['crystal']);
+        }
+        if (isset($parsed['resources']['deuterium'])) {
+            $parts[] = 'D ' . number_format((int) $parsed['resources']['deuterium']);
+        }
+        $resourcesSummary = implode(' · ', $parts);
+    }
+
+    $fleetsSummary = '';
+    if (! empty($parsed['fleets'])) {
+        $slots = $parsed['fleets']['fleet_slots'] ?? null;
+        $used = $parsed['fleets']['fleets'] ?? null;
+        if ($used !== null && $slots !== null) {
+            $fleetsSummary = $used . '/' . $slots;
+        }
+    }
+
+    $planetsSummary = '';
+    $planetsDetail = [];
+    if (! empty($parsed['planets'])) {
+        $planetsSummary = count($parsed['planets']) . ' planetas';
+        foreach ($parsed['planets'] as $planet) {
+            if (! is_array($planet)) {
+                continue;
+            }
+            $label = trim(($planet['name'] ?? '') . ' ' . ($planet['coords'] ?? ''));
+            if ($label !== '') {
+                $planetsDetail[] = $label;
+            }
+        }
+    }
+
+    $details = [
+        'resources' => [
+            'label' => 'Recursos',
+            'summary' => $resourcesSummary,
+            'value' => $parsed['resources'] ?? [],
+        ],
+        'fleets' => [
+            'label' => 'Flotas',
+            'summary' => $fleetsSummary,
+            'value' => $parsed['fleets'] ?? [],
+        ],
+        'planets' => [
+            'label' => 'Planetas',
+            'summary' => $planetsSummary,
+            'value' => $planetsDetail,
+        ],
+        'session' => [
+            'label' => 'Sesion',
+            'summary' => $parsed['meta_session'] ?? null,
+            'value' => $parsed['meta_session'] ?? null,
+        ],
+        'universe' => [
+            'label' => 'Universo',
+            'summary' => $parsed['meta_universe'] ?? null,
+            'value' => $parsed['meta_universe'] ?? null,
+        ],
+        'version' => [
+            'label' => 'Version',
+            'summary' => $parsed['meta_version'] ?? null,
+            'value' => $parsed['meta_version'] ?? null,
+        ],
+        'timestamp' => [
+            'label' => 'Timestamp',
+            'summary' => $parsed['meta_timestamp'] ?? null,
+            'value' => $parsed['meta_timestamp'] ?? null,
+        ],
+        'speed' => [
+            'label' => 'Velocidad economia',
+            'summary' => $parsed['meta_speed'] ?? null,
+            'value' => $parsed['meta_speed'] ?? null,
+        ],
+        'fleet_peaceful' => [
+            'label' => 'Flota paz',
+            'summary' => $parsed['meta_fleet_peaceful'] ?? null,
+            'value' => $parsed['meta_fleet_peaceful'] ?? null,
+        ],
+        'fleet_war' => [
+            'label' => 'Flota guerra',
+            'summary' => $parsed['meta_fleet_war'] ?? null,
+            'value' => $parsed['meta_fleet_war'] ?? null,
+        ],
+        'fleet_holding' => [
+            'label' => 'Flota defensiva',
+            'summary' => $parsed['meta_fleet_holding'] ?? null,
+            'value' => $parsed['meta_fleet_holding'] ?? null,
+        ],
+        'player_id' => [
+            'label' => 'Player ID',
+            'summary' => $parsed['player_id'] ?? null,
+            'value' => $parsed['player_id'] ?? null,
+        ],
+        'player_name' => [
+            'label' => 'Jugador',
+            'summary' => $parsed['player_name'] ?? null,
+            'value' => $parsed['player_name'] ?? null,
+        ],
+        'token' => [
+            'label' => 'Token',
+            'summary' => $parsed['token'] ?? null,
+            'value' => $parsed['token'] ?? null,
+        ],
+        'meta' => [
+            'label' => 'Meta tags',
+            'summary' => ! empty($parsed['meta']) ? count($parsed['meta']) . ' campos' : null,
+            'value' => $parsed['meta'] ?? [],
+        ],
+    ];
+
+    Log::info('OGame login test response', [
+        'status' => $response->status(),
+        'login_detected' => $loginDetected,
+        'body_length' => strlen($body),
+        'snippet' => Str::limit($body, 1200, '...'),
+        'player_id_found' => $parsed['player_id'] !== null,
+        'player_name_found' => $parsed['player_name'] !== null,
+        'token_found' => $parsed['token'] !== null,
+    ]);
+
+    if ($response->successful() && ! $parsed['is_lobby']) {
+        AppSetting::query()->updateOrCreate(
+            ['key' => $keyPrefix . '.cookie'],
+            ['value' => encrypt($cookieHeader)]
+        );
+        AppSetting::query()->updateOrCreate(
+            ['key' => $keyPrefix . '.valid_at'],
+            ['value' => now()->toDateTimeString()]
+        );
+    } else {
+        AppSetting::query()->where('key', $keyPrefix . '.valid_at')->delete();
+    }
+
+    if ($response->successful() && ! $parsed['is_lobby']) {
+        OgameOverviewSnapshot::updateOrCreate(
+            [
+                'region' => $region,
+                'universe_id' => $universe,
+            ],
+            [
+                'player_id' => $parsed['player_id'],
+                'source_url' => $testUrl,
+                'status_code' => $response->status(),
+                'is_lobby' => $parsed['is_lobby'],
+                'fetched_at' => now(),
+                'meta' => $parsed['meta'] ?? null,
+                'resources' => $parsed['resources'] ?? null,
+                'fleets' => $parsed['fleets'] ?? null,
+                'planets' => $parsed['planets'] ?? null,
+                'raw_html' => $body,
+            ]
+        );
+    }
+
+    $ok = $response->successful() && ! $loginDetected;
+    $reason = null;
+    $message = 'Sesion valida.';
+    if (! $ok) {
+        if ($parsed['is_lobby']) {
+            $reason = 'lobby';
+            $message = 'Cookie invalida o de dominio incorrecto. Copia la cookie desde el universo (s164-ar.ogame.gameforge.com).';
+        } elseif ($loginDetected) {
+            $reason = 'login';
+            $message = 'El servidor devolvio pantalla de login. La cookie expiro o es incorrecta.';
+        } else {
+            $reason = 'error';
+            $message = 'No se pudo validar la sesion con la cookie.';
+        }
+    }
+
+    return back()->withInput()->with('login_test', [
+        'ok' => $ok,
+        'status' => $response->status(),
+        'login_detected' => $loginDetected ? 'si' : 'no',
+        'snippet' => $snippet !== '' ? $snippet : 'Sin contenido visible.',
+        'details' => $details,
+        'reason' => $reason,
+        'message' => $message,
+    ]);
+})->name('login.test');
+
+Route::get('/empire', function () {
+    $universe = OgameUniverse::getUniverse();
+    $region = OgameUniverse::getRegion();
+
+    if (! OgameUniverse::isConfigured()) {
+        return view('pages.empire', [
+            'latest' => null,
+            'resources' => [],
+            'fleets' => [],
+            'planets' => [],
+            'meta' => [],
+        ]);
+    }
+
+    $latest = OgameOverviewSnapshot::query()
+        ->where('region', $region)
+        ->where('universe_id', $universe)
+        ->orderByDesc('fetched_at')
+        ->first();
+
+    return view('pages.empire', [
+        'latest' => $latest,
+        'resources' => $latest?->resources ?? [],
+        'fleets' => $latest?->fleets ?? [],
+        'planets' => $latest?->planets ?? [],
+        'meta' => $latest?->meta ?? [],
+        'galaxy' => $latest?->galaxy ?? [],
+        'fleetdispatch' => $latest?->fleetdispatch ?? [],
+        'eventbox' => $latest?->eventbox ?? [],
+    ]);
+})->name('empire');
 
 Route::get('/settings', function () {
     $universe = OgameUniverse::getUniverse();
