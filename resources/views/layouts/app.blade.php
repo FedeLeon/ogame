@@ -6,12 +6,8 @@
         'inactives' => ['label' => 'Inactivos cerca', 'route' => 'inactives'],
         'distance' => ['label' => 'Distancia', 'route' => 'distance'],
         'api' => ['label' => 'API raw', 'route' => 'api'],
-        'login' => ['label' => 'Login', 'route' => 'login'],
     ];
     $current = $current ?? request()->route()?->getName();
-    $universes = config('ogame.universes', []);
-    $selectedUniverse = session('universe', config('ogame.default_universe'));
-    $selectedUniverseData = collect($universes)->firstWhere('id', $selectedUniverse);
 @endphp
 <!doctype html>
 <html lang="es">
@@ -22,29 +18,6 @@
     <link rel="stylesheet" href="/assets/styles.css" />
 </head>
 <body>
-<header class="header">
-    <h1>OGame AR — Universo {{ $selectedUniverseData['id'] ?? $selectedUniverse }} — Tool (API pública) · Laravel</h1>
-    <div class="sub">
-        Solo lectura de endpoints públicos <span class="mono">/api/*.xml</span>. Sin login automático, sin automatización de acciones.
-    </div>
-    <div class="header-tools">
-        <span class="label">Universo:</span>
-        <form method="post" action="{{ route('universe.select') }}" class="row">
-            @csrf
-            <select name="universe" onchange="this.form.submit()">
-                @foreach ($universes as $universe)
-                    <option value="{{ $universe['id'] }}" @selected($universe['id'] === $selectedUniverse)>
-                        {{ $universe['label'] }}
-                    </option>
-                @endforeach
-            </select>
-            <noscript>
-                <button class="btn secondary" type="submit">Cambiar</button>
-            </noscript>
-        </form>
-    </div>
-</header>
-
 <div class="wrap">
     <nav>
         @foreach ($tabs as $tab)
@@ -52,6 +25,9 @@
                 {{ $tab['label'] }}
             </a>
         @endforeach
+        <a class="navlink {{ $current === 'settings' ? 'active' : '' }}" href="{{ route('settings') }}">
+            Configuracion
+        </a>
     </nav>
 
     <main>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\OgameUniverse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -23,19 +24,31 @@ Route::post('/login', function () {
     return back()->with('status', 'Login pendiente de implementar.');
 })->name('login.submit');
 
-Route::post('/universe', function (Request $request) {
-    $universes = collect(config('ogame.universes', []));
-    $selected = (string) $request->input('universe', '');
-    $universe = $universes->firstWhere('id', $selected);
+Route::get('/settings', function () {
+    return view('pages.settings');
+})->name('settings');
 
-    if (! $universe) {
-        return back()->with('status', 'Universo inválido.');
+Route::post('/settings', function (Request $request) {
+    $selected = (string) $request->input('universe', '');
+    $selected = preg_replace('/\D/', '', $selected ?? '');
+    $region = strtolower(trim((string) $request->input('region', '')));
+
+    if ($selected === '' || $region === '') {
+        return back()->with('status', 'Universo o region invalida.');
+    }
+
+    $allowedRegions = ['ar', 'br', 'mx', 'es', 'us', 'de', 'fr', 'it', 'pl', 'tr'];
+    if (! in_array($region, $allowedRegions, true)) {
+        return back()->with('status', 'Region invalida.');
     }
 
     $request->session()->put('universe', $selected);
+    $request->session()->put('region', $region);
+    OgameUniverse::storeUniverse($selected);
+    OgameUniverse::storeRegion($region);
 
-    return back()->with('status', 'Universo actualizado a ' . $universe['label'] . '.');
-})->name('universe.select');
+    return redirect()->route('home')->with('status', 'Configuracion actualizada.');
+})->name('settings.save');
 
 Route::view('/player', 'pages.coming-soon', ['title' => 'Jugador (stats)'])->name('player');
 Route::view('/planets', 'pages.coming-soon', ['title' => 'Planetas (buscar)'])->name('planets');

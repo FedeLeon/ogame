@@ -50,6 +50,39 @@ th { text-align: left; font-size: 12px; opacity: .9; }
 .header-tools { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .header-tools .label { font-size: 12px; opacity: .85; }
 
+.onboarding {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 10, 22, 0.92);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+
+.onboarding-frame {
+  width: min(640px, 90vw);
+  animation: split-open 600ms ease-out both;
+}
+
+.onboarding .card {
+  box-shadow: 0 20px 60px rgba(4, 8, 18, 0.6);
+}
+
+.onboarding-step {
+  animation: step-fade 240ms ease-out both;
+}
+
+@keyframes split-open {
+  0% { clip-path: inset(0 50% 0 50%); transform: translateY(10px); opacity: 0; }
+  100% { clip-path: inset(0 0 0 0); transform: translateY(0); opacity: 1; }
+}
+
+@keyframes step-fade {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 980px) {
   .wrap { grid-template-columns: 1fr; }
 }
