@@ -39,6 +39,8 @@ class OgameHtmlParser
             'crystal' => self::extractResourceValue($body, 'resources_crystal'),
             'deuterium' => self::extractResourceValue($body, 'resources_deuterium'),
             'energy' => self::extractResourceValue($body, 'resources_energy'),
+            'food' => self::extractResourceValue($body, 'resources_food'),
+            'darkmatter' => self::extractResourceValue($body, 'resources_darkmatter'),
         ], static fn ($value) => $value !== null);
 
         $fleets = array_filter([
@@ -72,6 +74,16 @@ class OgameHtmlParser
             'meta_fleet_peaceful' => $getMeta('universe-speed-fleet-peaceful'),
             'meta_fleet_war' => $getMeta('universe-speed-fleet-war'),
             'meta_fleet_holding' => $getMeta('universe-speed-fleet-holding'),
+            'meta_player_id' => $meta['ogame-player-id'] ?? null,
+            'meta_player_name' => $meta['ogame-player-name'] ?? null,
+            'meta_planet_id' => $meta['ogame-planet-id'] ?? null,
+            'meta_planet_name' => $meta['ogame-planet-name'] ?? null,
+            'meta_planet_coords' => $meta['ogame-planet-coordinates'] ?? null,
+            'meta_planet_type' => $meta['ogame-planet-type'] ?? null,
+            'meta_alliance_id' => $meta['ogame-alliance-id'] ?? null,
+            'meta_alliance_name' => $meta['ogame-alliance-name'] ?? null,
+            'meta_alliance_tag' => $meta['ogame-alliance-tag'] ?? null,
+            'endpoints' => self::extractEndpoints($body),
         ];
     }
 
@@ -145,13 +157,87 @@ class OgameHtmlParser
         $own = self::countMatches($body, ['/eventBoxEnd/i', '/eventFriendly/i']);
 
         $events = [];
-        if (preg_match_all('/data-time="(\\d+)"[^>]*class="[^"]*(eventHostile|eventNeutral|eventFriendly)[^"]*"/i', $body, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $events[] = [
-                    'time' => $match[1],
-                    'type' => $match[2],
-                ];
+        $fleetRows = [];
+        if (preg_match_all('/<tr[^>]*class="[^"]*eventFleet[^"]*"[^>]*>.*?<\\/tr>/is', $body, $rowMatches)) {
+            $fleetRows = $rowMatches[0];
+        }
+        foreach ($fleetRows as $row) {
+            $rowTag = '';
+            if (preg_match('/<tr[^>]*class="[^"]*eventFleet[^"]*"[^>]*>/i', $row, $tagMatch)) {
+                $rowTag = $tagMatch[0];
             }
+            $attrs = self::extractHtmlAttributes($rowTag);
+            $missionTitle = self::extractFirstMatch($row, [
+                '/<img[^>]*class="[^"]*tooltipHTML[^"]*"[^>]*title="([^"]+)"/i',
+            ]);
+            $arrivalText = self::extractFirstMatch($row, [
+                '/<td[^>]*class="[^"]*arrivalTime[^"]*"[^>]*>([^<]+)<\\/td>/i',
+            ]);
+            $originName = self::extractFirstMatch($row, [
+                '/<td[^>]*class="[^"]*originFleet[^"]*"[^>]*>\\s*(?:<[^>]+>\\s*)*([^<]+)</i',
+            ]);
+            $originCoords = self::extractFirstMatch($row, [
+                '/<td[^>]*class="[^"]*coordsOrigin[^"]*"[^>]*>\\s*<a[^>]*>\\s*\\[([^\\]]+)\\]\\s*<\\/a>/i',
+            ]);
+            $destName = self::extractFirstMatch($row, [
+                '/<td[^>]*class="[^"]*destFleet[^"]*"[^>]*>\\s*(?:<[^>]+>\\s*)*([^<]+)</i',
+            ]);
+            $destCoords = self::extractFirstMatch($row, [
+                '/<td[^>]*class="[^"]*destCoords[^"]*"[^>]*>\\s*<a[^>]*>\\s*\\[([^\\]]+)\\]\\s*<\\/a>/i',
+            ]);
+            $shipsTotal = self::extractFirstMatch($row, [
+                '/<td[^>]*class="[^"]*detailsFleet[^"]*"[^>]*>\\s*<span>([^<]+)<\\/span>/i',
+            ]);
+
+            $mission = null;
+            if ($missionTitle) {
+                $parts = array_map('trim', explode('|', $missionTitle));
+                $mission = end($parts) ?: null;
+            }
+
+            $events[] = [
+                'type' => 'eventFleet',
+                'mission_type' => $attrs['data-mission-type'] ?? null,
+                'mission' => $mission,
+                'mission_title' => $missionTitle,
+                'return' => $attrs['data-return-flight'] ?? null,
+                'arrival_time' => $attrs['data-arrival-time'] ?? null,
+                'arrival_time_text' => $arrivalText ? trim($arrivalText) : null,
+                'origin_name' => $originName ? trim($originName) : null,
+                'origin_coords' => $originCoords,
+                'dest_name' => $destName ? trim($destName) : null,
+                'dest_coords' => $destCoords,
+                'ships_total' => $shipsTotal ? self::normalizeNumber($shipsTotal) : null,
+            ];
+        }
+
+        if (! $fleetRows) {
+            if (preg_match_all('/<[^>]*class="[^"]*(eventHostile|eventNeutral|eventFriendly|eventFleet)[^"]*"[^>]*>/i', $body, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $match) {
+                    $attrs = self::extractHtmlAttributes($match[0]);
+                    $events[] = [
+                        'type' => $match[1],
+                        'time' => $attrs['data-time'] ?? $attrs['data-arrival-time'] ?? null,
+                        'arrival_time' => $attrs['data-arrival-time'] ?? null,
+                        'arrival_time_seconds' => $attrs['data-arrival-time-seconds'] ?? null,
+                        'mission_type' => $attrs['data-mission-type'] ?? null,
+                        'mission' => $attrs['data-mission'] ?? null,
+                        'return' => $attrs['data-return-flight'] ?? null,
+                    ];
+                }
+            } elseif (preg_match_all('/data-time="(\\d+)"[^>]*class="[^"]*(eventHostile|eventNeutral|eventFriendly)[^"]*"/i', $body, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $match) {
+                    $events[] = [
+                        'time' => $match[1],
+                        'type' => $match[2],
+                    ];
+                }
+            }
+        }
+
+        if ($fleetRows) {
+            $friendly = max($friendly, count($fleetRows));
+            $own = max($own, count($fleetRows));
         }
 
         return [
@@ -160,6 +246,69 @@ class OgameHtmlParser
             'friendly' => $friendly,
             'own' => $own,
             'events' => $events,
+        ];
+    }
+
+    public static function parseEventboxPayload(array $payload): array
+    {
+        if (isset($payload['friendly']) || isset($payload['hostile']) || isset($payload['neutral'])) {
+            $events = [];
+            if (! empty($payload['eventType']) || ! empty($payload['eventText']) || isset($payload['eventTime'])) {
+                $events[] = [
+                    'type' => $payload['eventType'] ?? null,
+                    'time' => $payload['eventTime'] ?? null,
+                    'mission' => $payload['eventText'] ?? null,
+                ];
+            }
+
+            return [
+                'source' => 'ajax',
+                'hostile' => $payload['hostile'] ?? 0,
+                'neutral' => $payload['neutral'] ?? 0,
+                'friendly' => $payload['friendly'] ?? 0,
+                'own' => $payload['friendly'] ?? 0,
+                'events' => $events,
+            ];
+        }
+
+        $candidates = [];
+        $knownKeys = [
+            'eventbox',
+            'eventBox',
+            'eventList',
+            'eventListHtml',
+            'eventboxHtml',
+            'eventBoxHtml',
+            'html',
+            'content',
+        ];
+
+        foreach ($knownKeys as $key) {
+            if (isset($payload[$key]) && is_string($payload[$key])) {
+                $candidates[$key] = $payload[$key];
+            }
+        }
+
+        if (! $candidates) {
+            foreach ($payload as $key => $value) {
+                if (is_string($value) && Str::contains($value, ['eventHostile', 'eventNeutral', 'eventFriendly', 'eventFleet'])) {
+                    $candidates[$key] = $value;
+                }
+            }
+        }
+
+        foreach ($candidates as $key => $html) {
+            $parsed = self::parseEventboxHtml($html);
+            if (! empty($parsed['events']) || $parsed['hostile'] || $parsed['neutral'] || $parsed['friendly']) {
+                $parsed['source'] = 'ajax';
+                $parsed['payload_key'] = $key;
+                return $parsed;
+            }
+        }
+
+        return [
+            'source' => 'ajax',
+            'payload' => $payload,
         ];
     }
 
@@ -217,5 +366,48 @@ class OgameHtmlParser
             }
         }
         return $count;
+    }
+
+    private static function extractEndpoints(string $body): array
+    {
+        $endpoints = [];
+        $mapping = [
+            'ajaxEventboxURI' => 'ajaxEventboxURI',
+            'ajaxRecallFleetURI' => 'ajaxRecallFleetURI',
+            'ajaxResourceboxURI' => 'ajaxResourceboxURI',
+            'eventlistLink' => 'eventlistLink',
+            'miniFleetLink' => 'miniFleetLink',
+        ];
+
+        foreach ($mapping as $name => $key) {
+            $value = self::extractFirstMatch($body, [
+                '/var\\s+' . preg_quote($name, '/') . '\\s*=\\s*[\\\'"]([^\\\'"]+)[\\\'"]/i',
+            ]);
+            if ($value) {
+                $value = str_replace('\\/', '/', $value);
+                $value = str_replace('\\', '', $value);
+                $endpoints[$key] = $value;
+            }
+        }
+
+        $currentSpaceObjectId = self::extractFirstMatch($body, [
+            '/currentSpaceObjectId\\s*=\\s*(\\d+)/i',
+        ]);
+        if ($currentSpaceObjectId) {
+            $endpoints['currentSpaceObjectId'] = $currentSpaceObjectId;
+        }
+
+        return $endpoints;
+    }
+
+    private static function extractHtmlAttributes(string $tag): array
+    {
+        $attributes = [];
+        if (preg_match_all('/([a-zA-Z0-9_-]+)="([^"]*)"/', $tag, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $attributes[strtolower($match[1])] = $match[2];
+            }
+        }
+        return $attributes;
     }
 }

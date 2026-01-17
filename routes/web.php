@@ -437,6 +437,11 @@ Route::get('/empire', function () {
     ]);
 })->name('empire');
 
+Route::post('/empire/sync', function () {
+    \Artisan::call('ogame:sync-overview');
+    return back()->with('status', 'Sync ejecutado.');
+})->name('empire.sync');
+
 Route::get('/settings', function () {
     $universe = OgameUniverse::getUniverse();
     $region = OgameUniverse::getRegion();

@@ -101,6 +101,43 @@ class SyncOverview extends Command
             } catch (\Throwable $e) {
                 $eventbox = ['error' => $e->getMessage()];
             }
+
+            $ajaxEventbox = $parsed['endpoints']['ajaxEventboxURI'] ?? null;
+            if ($ajaxEventbox) {
+                try {
+                    $ajaxResponse = Http::withHeaders([
+                        'Cookie' => $cookieHeader,
+                        'User-Agent' => $userAgent,
+                        'Accept' => 'application/json',
+                    ])->timeout(30)->get($ajaxEventbox);
+                    $json = json_decode((string) $ajaxResponse->body(), true);
+                    if (is_array($json)) {
+                        $eventbox = OgameHtmlParser::parseEventboxPayload($json);
+                    }
+                } catch (\Throwable $e) {
+                    $eventbox['ajax_error'] = $e->getMessage();
+                }
+            }
+
+            $eventlistLink = $parsed['endpoints']['eventlistLink'] ?? null;
+            $shouldFetchEventlist = empty($eventbox)
+                || (empty($eventbox['events']) && (($eventbox['friendly'] ?? 0) + ($eventbox['neutral'] ?? 0) + ($eventbox['hostile'] ?? 0)) === 0);
+            if ($eventlistLink && $shouldFetchEventlist) {
+                try {
+                    $eventlistResponse = Http::withHeaders([
+                        'Cookie' => $cookieHeader,
+                        'User-Agent' => $userAgent,
+                        'Accept' => 'text/html,application/xhtml+xml',
+                    ])->timeout(30)->get($eventlistLink);
+                    $eventlistHtml = (string) $eventlistResponse->body();
+                    $eventlistParsed = OgameHtmlParser::parseEventboxHtml($eventlistHtml);
+                    if (! empty($eventlistParsed['events'])) {
+                        $eventbox = $eventlistParsed;
+                    }
+                } catch (\Throwable $e) {
+                    $eventbox['eventlist_error'] = $e->getMessage();
+                }
+            }
         }
 
         $snapshot = OgameOverviewSnapshot::updateOrCreate(

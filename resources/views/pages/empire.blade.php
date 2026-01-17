@@ -6,6 +6,17 @@
             <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 10 12 3l9 7v10h-6v-6H9v6H3z"/></svg>
             Imperio
         </h2>
+        <div class="row" style="margin-top:8px; justify-content:flex-end;">
+            <form method="post" action="{{ route('empire.sync') }}">
+                @csrf
+                <button class="btn success" type="submit">
+                    <svg class="icon-refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path fill="currentColor" d="M3 12a9 9 0 0 1 15.55-6.36L21 3v6h-6l2.17-2.17A7 7 0 1 0 19 12h2a9 9 0 0 1-18 0Z"/>
+                    </svg>
+                    Sincronizar ahora
+                </button>
+            </form>
+        </div>
         @if (! $latest)
             <p class="muted">No hay snapshots aun. Verifica la cookie y espera el sync.</p>
         @else
@@ -177,19 +188,29 @@
                 </table>
                 @if (! empty($eventbox['events']))
                     <div style="margin-top:12px">
-                        <h4>Eventos</h4>
+                        <h4>Flotas en vuelo</h4>
                         <table>
                             <thead>
                                 <tr>
                                     <th>Tipo</th>
-                                    <th>Time</th>
+                                    <th>Mision</th>
+                                    <th>Retorno</th>
+                                    <th>Llega</th>
+                                    <th>Origen</th>
+                                    <th>Destino</th>
+                                    <th>Naves</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($eventbox['events'] as $event)
                                     <tr>
                                         <td>{{ $event['type'] ?? '—' }}</td>
-                                        <td class="mono">{{ $event['time'] ?? '—' }}</td>
+                                        <td>{{ $event['mission'] ?? $event['mission_title'] ?? $event['mission_type'] ?? '—' }}</td>
+                                        <td class="mono">{{ $event['return'] ?? '—' }}</td>
+                                        <td class="mono">{{ $event['arrival_time_text'] ?? $event['arrival_time'] ?? $event['time'] ?? '—' }}</td>
+                                        <td class="mono">{{ $event['origin_coords'] ?? '—' }}</td>
+                                        <td class="mono">{{ $event['dest_coords'] ?? '—' }}</td>
+                                        <td class="mono">{{ $event['ships_total'] ?? '—' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

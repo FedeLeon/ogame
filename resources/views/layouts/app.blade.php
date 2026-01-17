@@ -57,12 +57,15 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>OGame AR — Tool</title>
+    <title>BlackOgame</title>
+    <link rel="icon" type="image/png" href="/assets/planet.png" />
     <link rel="stylesheet" href="/assets/styles.css" />
 </head>
 <body>
 <header class="topbar">
     <div class="topbar-left">
+        <img class="app-logo" src="/assets/planet.png" alt="BlackOgame" />
+        <span class="app-name">BlackOgame</span>
         @if ($regionFlag)
             <span class="flag">{{ $regionFlag }}</span>
         @endif
