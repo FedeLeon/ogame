@@ -38,31 +38,26 @@
     </div>
 
     @if ($latest)
-        <div class="card" style="margin-top:12px">
-            <h3>
-                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 7h16v10H4z"/><path fill="currentColor" d="M7 4h10v2H7zm0 14h10v2H7z"/></svg>
-                Recursos
-            </h3>
-            @if (count($resources))
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Recurso</th>
-                            <th>Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($resources as $key => $value)
-                            <tr>
-                                <td>{{ ucfirst($key) }}</td>
-                                <td class="mono">{{ is_array($value) ? json_encode($value) : $value }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <p class="muted">Sin datos de recursos.</p>
-            @endif
+        @php
+            $resourceOrder = [
+                'metal' => 'Metal',
+                'crystal' => 'Cristal',
+                'deuterium' => 'Deuterio',
+                'energy' => 'Energia',
+                'food' => 'Alimentacion',
+                'darkmatter' => 'Materia oscura',
+            ];
+        @endphp
+        <div class="resource-bar">
+            @foreach ($resourceOrder as $key => $label)
+                <div class="resource-tile">
+                    <span class="resource-icon {{ $key }}"></span>
+                    <div class="resource-meta">
+                        <div class="resource-label">{{ $label }}</div>
+                        <div class="resource-value mono">{{ number_format((int) ($resources[$key] ?? 0)) }}</div>
+                    </div>
+                </div>
+            @endforeach
         </div>
 
         <div class="card" style="margin-top:12px">
@@ -111,7 +106,7 @@
         <div class="card" style="margin-top:12px">
             <h3>
                 <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
-                Galaxy
+                Galaxia
             </h3>
             @if (count($galaxy))
                 <table>
@@ -131,14 +126,14 @@
                     </tbody>
                 </table>
             @else
-                <p class="muted">Sin datos de galaxy.</p>
+                <p class="muted">Sin datos de galaxia.</p>
             @endif
         </div>
 
         <div class="card" style="margin-top:12px">
             <h3>
                 <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4h14v4H5zm-2 6h18v10H3z"/></svg>
-                Fleetdispatch
+                Despacho de flota
             </h3>
             @if (count($fleetdispatch))
                 <table>
@@ -158,14 +153,14 @@
                     </tbody>
                 </table>
             @else
-                <p class="muted">Sin datos de fleetdispatch.</p>
+                <p class="muted">Sin datos de despacho de flota.</p>
             @endif
         </div>
 
         <div class="card" style="margin-top:12px">
             <h3>
                 <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 5h16v14H4z"/><path fill="currentColor" d="M7 8h10v2H7zm0 4h10v2H7z"/></svg>
-                Eventbox
+                Eventos
             </h3>
             @if (count($eventbox))
                 <table>
@@ -195,7 +190,7 @@
                                     <th>Tipo</th>
                                     <th>Mision</th>
                                     <th>Retorno</th>
-                                    <th>Llega</th>
+                                    <th>Llegada</th>
                                     <th>Origen</th>
                                     <th>Destino</th>
                                     <th>Naves</th>
@@ -218,14 +213,14 @@
                     </div>
                 @endif
             @else
-                <p class="muted">Sin datos de eventbox.</p>
+                <p class="muted">Sin datos de eventos.</p>
             @endif
         </div>
 
         <div class="card" style="margin-top:12px">
             <h3>
                 <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 7h16v2H4zm0 4h16v2H4zm0 4h16v2H4z"/></svg>
-                Meta tags
+                Meta etiquetas
             </h3>
             @if (count($meta))
                 <table>

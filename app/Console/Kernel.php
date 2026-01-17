@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('ogame:scan-planets')->everySixHours();
-        $schedule->command('ogame:sync-overview')->everyMinute();
+        $schedule->command('ogame:sync-overview')->everyFiveMinutes();
     }
 
     /**

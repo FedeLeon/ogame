@@ -8,6 +8,7 @@ use App\Services\OgameHtmlParser;
 use App\Support\OgameUniverse;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class SyncOverview extends Command
 {
@@ -64,6 +65,18 @@ class SyncOverview extends Command
         $rawGalaxy = null;
         $rawFleetdispatch = null;
         $rawEventbox = null;
+
+        $nextRunKey = 'ogame.sync.next_at.' . $region . '.' . $universe;
+        $nextRunAt = AppSetting::query()->where('key', $nextRunKey)->value('value');
+        if ($nextRunAt && now()->lessThan(\Carbon\Carbon::parse($nextRunAt))) {
+            $this->info('Sync salteado hasta ' . $nextRunAt . '.');
+            Log::info('OGame sync skipped', [
+                'region' => $region,
+                'universe' => $universe,
+                'next_run_at' => $nextRunAt,
+            ]);
+            return self::SUCCESS;
+        }
 
         if (! $parsed['is_lobby'] && $response->successful()) {
             try {
@@ -140,6 +153,13 @@ class SyncOverview extends Command
             }
         }
 
+        if (empty($fleetdispatch['slots']) && ! empty($parsed['fleets'])) {
+            $fleetdispatch['slots'] = $parsed['fleets'];
+        }
+        if (! empty($eventbox['events'])) {
+            $fleetdispatch['active_flights'] = count($eventbox['events']);
+        }
+
         $snapshot = OgameOverviewSnapshot::updateOrCreate(
             [
                 'region' => $region,
@@ -159,11 +179,27 @@ class SyncOverview extends Command
                 'fleetdispatch' => $fleetdispatch ?: null,
                 'eventbox' => $eventbox ?: null,
                 'raw_html' => $body,
-                'raw_galaxy_html' => $rawGalaxy,
-                'raw_fleetdispatch_html' => $rawFleetdispatch,
-                'raw_eventbox_html' => $rawEventbox,
+                'raw_galaxy_html' => null,
+                'raw_fleetdispatch_html' => null,
+                'raw_eventbox_html' => null,
             ]
         );
+
+        $delaySeconds = random_int(300, 600);
+        AppSetting::query()->updateOrCreate(
+            ['key' => $nextRunKey],
+            ['value' => now()->addSeconds($delaySeconds)->toDateTimeString()]
+        );
+        Log::info('OGame sync completed', [
+            'region' => $region,
+            'universe' => $universe,
+            'status_code' => $response->status(),
+            'is_lobby' => $parsed['is_lobby'],
+            'snapshot_id' => $snapshot->id,
+            'event_count' => is_array($eventbox['events'] ?? null) ? count($eventbox['events']) : null,
+            'active_flights' => $fleetdispatch['active_flights'] ?? null,
+            'next_run_in' => $delaySeconds,
+        ]);
 
         if ($parsed['is_lobby']) {
             $this->warn('Respuesta de lobby, la cookie podria no ser valida.');

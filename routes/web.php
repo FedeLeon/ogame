@@ -164,6 +164,10 @@ Route::post('/login', function () {
         ['value' => $userAgent]
     );
 
+    if (OgameUniverse::isConfigured()) {
+        \Artisan::call('ogame:sync-overview');
+    }
+
     return back()->with('status', 'Credenciales guardadas.');
 })->name('login.submit');
 
@@ -353,6 +357,7 @@ Route::post('/login/test', function (Request $request) {
             ['key' => $keyPrefix . '.valid_at'],
             ['value' => now()->toDateTimeString()]
         );
+        \Artisan::call('ogame:sync-overview');
     } else {
         AppSetting::query()->where('key', $keyPrefix . '.valid_at')->delete();
     }

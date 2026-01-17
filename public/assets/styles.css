@@ -123,6 +123,42 @@ th { text-align: left; font-size: 12px; opacity: .9; }
   padding: 2px 0;
 }
 
+.resource-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.resource-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #0b1020;
+  border: 1px solid #243055;
+  border-radius: 10px;
+}
+
+.resource-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  background: #6b7280;
+}
+
+.resource-icon.metal { background: linear-gradient(135deg, #c9c9c9, #7d7d7d); }
+.resource-icon.crystal { background: linear-gradient(135deg, #9fe8ff, #4fb2f7); }
+.resource-icon.deuterium { background: linear-gradient(135deg, #8cffcf, #2dbd86); }
+.resource-icon.energy { background: linear-gradient(135deg, #ffe8a3, #f5b14a); }
+.resource-icon.food { background: linear-gradient(135deg, #c7f0a3, #6fcf68); }
+.resource-icon.darkmatter { background: linear-gradient(135deg, #c7c6ff, #6b7cff); }
+
+.resource-meta { display: grid; gap: 2px; }
+.resource-label { font-size: 11px; opacity: .85; }
+.resource-value { font-size: 14px; font-weight: 800; }
+
 .title-icon {
   width: 16px;
   height: 16px;
