@@ -6,13 +6,14 @@ use App\Models\AppSetting;
 use App\Models\OgameOverviewSnapshot;
 use App\Services\OgameHtmlParser;
 use App\Support\OgameUniverse;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SyncOverview extends Command
 {
-    protected $signature = 'ogame:sync-overview {--universe=}';
+    protected $signature = 'ogame:sync-overview {--universe=} {--force}';
 
     protected $description = 'Descarga overview autenticado y guarda un snapshot en la DB';
 
@@ -67,8 +68,9 @@ class SyncOverview extends Command
         $rawEventbox = null;
 
         $nextRunKey = 'ogame.sync.next_at.' . $region . '.' . $universe;
+        $force = (bool) $this->option('force');
         $nextRunAt = AppSetting::query()->where('key', $nextRunKey)->value('value');
-        if ($nextRunAt && now()->lessThan(\Carbon\Carbon::parse($nextRunAt))) {
+        if (! $force && $nextRunAt && now()->lessThan(Carbon::parse($nextRunAt))) {
             $this->info('Sync salteado hasta ' . $nextRunAt . '.');
             Log::info('OGame sync skipped', [
                 'region' => $region,

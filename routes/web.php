@@ -165,7 +165,7 @@ Route::post('/login', function () {
     );
 
     if (OgameUniverse::isConfigured()) {
-        \Artisan::call('ogame:sync-overview');
+        \Artisan::call('ogame:sync-overview', ['--force' => true]);
     }
 
     return back()->with('status', 'Credenciales guardadas.');
@@ -348,19 +348,19 @@ Route::post('/login/test', function (Request $request) {
         'token_found' => $parsed['token'] !== null,
     ]);
 
-    if ($response->successful() && ! $parsed['is_lobby']) {
-        AppSetting::query()->updateOrCreate(
-            ['key' => $keyPrefix . '.cookie'],
-            ['value' => encrypt($cookieHeader)]
-        );
-        AppSetting::query()->updateOrCreate(
-            ['key' => $keyPrefix . '.valid_at'],
-            ['value' => now()->toDateTimeString()]
-        );
-        \Artisan::call('ogame:sync-overview');
-    } else {
-        AppSetting::query()->where('key', $keyPrefix . '.valid_at')->delete();
-    }
+        if ($response->successful() && ! $parsed['is_lobby']) {
+            AppSetting::query()->updateOrCreate(
+                ['key' => $keyPrefix . '.cookie'],
+                ['value' => encrypt($cookieHeader)]
+            );
+            AppSetting::query()->updateOrCreate(
+                ['key' => $keyPrefix . '.valid_at'],
+                ['value' => now()->toDateTimeString()]
+            );
+            \Artisan::call('ogame:sync-overview', ['--force' => true]);
+        } else {
+            AppSetting::query()->where('key', $keyPrefix . '.valid_at')->delete();
+        }
 
     if ($response->successful() && ! $parsed['is_lobby']) {
         OgameOverviewSnapshot::updateOrCreate(
@@ -443,7 +443,7 @@ Route::get('/empire', function () {
 })->name('empire');
 
 Route::post('/empire/sync', function () {
-    \Artisan::call('ogame:sync-overview');
+    \Artisan::call('ogame:sync-overview', ['--force' => true]);
     return back()->with('status', 'Sync ejecutado.');
 })->name('empire.sync');
 

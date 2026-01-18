@@ -60,31 +60,142 @@
             @endforeach
         </div>
 
-        <div class="card" style="margin-top:12px">
-            <h3>
-                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 12l9-7 9 7-9 7z"/><path fill="currentColor" d="M12 5v14"/></svg>
-                Flotas
-            </h3>
-            @if (count($fleets))
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Campo</th>
-                            <th>Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($fleets as $key => $value)
-                            <tr>
-                                <td>{{ $key }}</td>
-                                <td class="mono">{{ is_array($value) ? json_encode($value) : $value }}</td>
-                            </tr>
+        @php
+            $slots = $fleetdispatch['slots'] ?? [];
+            $slotItems = [
+                [
+                    'label' => 'Flotas',
+                    'value' => (int) ($slots['fleets'] ?? 0),
+                    'total' => (int) ($slots['fleet_slots'] ?? 0),
+                    'hint' => 'Slots ocupados / totales',
+                ],
+                [
+                    'label' => 'Expediciones',
+                    'value' => (int) ($slots['expeditions'] ?? 0),
+                    'total' => (int) ($slots['expedition_slots'] ?? 0),
+                    'hint' => 'Slots de expedicion',
+                ],
+            ];
+            $eventRecords = $eventbox['events'] ?? [];
+            $eventPills = [
+                ['label' => 'Propias', 'value' => $eventbox['friendly'] ?? 0, 'class' => 'pill-friendly'],
+                ['label' => 'Neutrales', 'value' => $eventbox['neutral'] ?? 0, 'class' => 'pill-neutral'],
+                ['label' => 'Enemigas', 'value' => $eventbox['hostile'] ?? 0, 'class' => 'pill-hostile'],
+            ];
+            $missionTypeLabels = [
+                1 => 'Ataque',
+                2 => 'Transporte',
+                3 => 'Desplegar',
+                4 => 'Mantener',
+                5 => 'Espionaje',
+                6 => 'Colonizar',
+                7 => 'Reciclador',
+                8 => 'Recolectar',
+                9 => 'Destruir',
+                10 => 'Bombardeo',
+                11 => 'Expedición',
+                12 => 'Expedición',
+                13 => 'Ataque con misiles',
+                14 => 'Desconocida',
+                15 => 'Expedición',
+            ];
+            $missionTypeIcons = [
+                1 => '⚔️',
+                2 => '🚚',
+                3 => '📦',
+                4 => '🛡️',
+                5 => '🛰️',
+                6 => '🌍',
+                7 => '🧹',
+                8 => '🛠️',
+                9 => '💥',
+                10 => '🔥',
+                11 => '🛰️',
+                12 => '🛰️',
+                15 => '🚀',
+            ];
+        @endphp
+
+        <div class="card movements-card" style="margin-top:12px">
+            <details class="movements-panel" open>
+                <summary>
+                    <div>
+                        <div class="movements-title">Movimientos de flota</div>
+                        <div class="muted">Slots, eventos y despachos resumidos</div>
+                    </div>
+                    <div class="pill-row">
+                        @foreach ($eventPills as $pill)
+                            <span class="pill {{ $pill['class'] }}">{{ $pill['label'] }} {{ $pill['value'] }}</span>
                         @endforeach
-                    </tbody>
-                </table>
-            @else
-                <p class="muted">Sin datos de flotas.</p>
-            @endif
+                    </div>
+                </summary>
+                <div class="movements-content">
+                    <div class="slots-grid">
+                        @foreach ($slotItems as $slot)
+                            <div class="slot-card">
+                                <div class="slot-label">{{ $slot['label'] }}</div>
+                                <div class="slot-value">{{ $slot['value'] }} / {{ $slot['total'] }}</div>
+                                <div class="slot-hint">{{ $slot['hint'] }}</div>
+                            </div>
+                        @endforeach
+                        <div class="slot-card">
+                            <div class="slot-label">Flotas activas</div>
+                            <div class="slot-value">{{ $fleetdispatch['active_flights'] ?? 0 }}</div>
+                            <div class="slot-hint">Eventos detectados</div>
+                        </div>
+                    </div>
+                    <div class="events-section">
+                        <div class="events-header">
+                            <span>Flotas en vuelo</span>
+                            <span class="muted">{{ count($eventRecords) }} eventos</span>
+                        </div>
+                        @if (count($eventRecords))
+                            <table class="events-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Misión</th>
+                                        <th>Destino</th>
+                                        <th>Llegada</th>
+                                        <th>Retorno</th>
+                                        <th>Naves</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($eventRecords as $event)
+                                        @php
+                                            $missionType = (int) ($event['mission_type'] ?? 0);
+                                            $missionLabel = $missionTypeLabels[$missionType] ?? ($event['mission'] ?? '—');
+                                            $missionIcon = $missionTypeIcons[$missionType] ?? '🚀';
+                                            $returning = in_array($event['return'], [true, 'true', 1, '1'], true);
+                                        @endphp
+                                        <tr>
+                                            <td class="mission-icon-cell">
+                                                <span class="mission-icon">{{ $missionIcon }}</span>
+                                            </td>
+                                            <td>
+                                                <strong>{{ $missionLabel }}</strong>
+                                                @if (! empty($event['mission_title']))
+                                                    <div class="muted small">{{ $event['mission_title'] }}</div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div>{{ $event['dest_coords'] ?? '—' }}</div>
+                                                <div class="muted small">{{ $event['dest_name'] ?? '' }}</div>
+                                            </td>
+                                            <td>{{ $event['arrival_time_text'] ?? $event['arrival_time'] ?? '—' }}</td>
+                                            <td>{{ $returning ? 'Sí' : 'No' }}</td>
+                                            <td class="mono">{{ $event['ships_total'] ?? '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        @else
+                            <p class="muted">No hay flotas en vuelo actualmente.</p>
+                        @endif
+                    </div>
+                </div>
+            </details>
         </div>
 
         <div class="card" style="margin-top:12px">
@@ -127,93 +238,6 @@
                 </table>
             @else
                 <p class="muted">Sin datos de galaxia.</p>
-            @endif
-        </div>
-
-        <div class="card" style="margin-top:12px">
-            <h3>
-                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 4h14v4H5zm-2 6h18v10H3z"/></svg>
-                Despacho de flota
-            </h3>
-            @if (count($fleetdispatch))
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Campo</th>
-                            <th>Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($fleetdispatch as $key => $value)
-                            <tr>
-                                <td>{{ $key }}</td>
-                                <td class="mono">{{ is_array($value) ? json_encode($value) : $value }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <p class="muted">Sin datos de despacho de flota.</p>
-            @endif
-        </div>
-
-        <div class="card" style="margin-top:12px">
-            <h3>
-                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 5h16v14H4z"/><path fill="currentColor" d="M7 8h10v2H7zm0 4h10v2H7z"/></svg>
-                Eventos
-            </h3>
-            @if (count($eventbox))
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Campo</th>
-                            <th>Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($eventbox as $key => $value)
-                            @if ($key !== 'events')
-                                <tr>
-                                    <td>{{ $key }}</td>
-                                    <td class="mono">{{ is_array($value) ? json_encode($value) : $value }}</td>
-                                </tr>
-                            @endif
-                        @endforeach
-                    </tbody>
-                </table>
-                @if (! empty($eventbox['events']))
-                    <div style="margin-top:12px">
-                        <h4>Flotas en vuelo</h4>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Tipo</th>
-                                    <th>Mision</th>
-                                    <th>Retorno</th>
-                                    <th>Llegada</th>
-                                    <th>Origen</th>
-                                    <th>Destino</th>
-                                    <th>Naves</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($eventbox['events'] as $event)
-                                    <tr>
-                                        <td>{{ $event['type'] ?? '—' }}</td>
-                                        <td>{{ $event['mission'] ?? $event['mission_title'] ?? $event['mission_type'] ?? '—' }}</td>
-                                        <td class="mono">{{ $event['return'] ?? '—' }}</td>
-                                        <td class="mono">{{ $event['arrival_time_text'] ?? $event['arrival_time'] ?? $event['time'] ?? '—' }}</td>
-                                        <td class="mono">{{ $event['origin_coords'] ?? '—' }}</td>
-                                        <td class="mono">{{ $event['dest_coords'] ?? '—' }}</td>
-                                        <td class="mono">{{ $event['ships_total'] ?? '—' }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
-            @else
-                <p class="muted">Sin datos de eventos.</p>
             @endif
         </div>
 

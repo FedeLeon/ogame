@@ -159,6 +159,31 @@ th { text-align: left; font-size: 12px; opacity: .9; }
 .resource-label { font-size: 11px; opacity: .85; }
 .resource-value { font-size: 14px; font-weight: 800; }
 
+.movements-card { overflow: hidden; }
+.movements-panel summary::-webkit-details-marker { display: none; }
+.movements-panel summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.movements-panel summary > div:first-child { display: grid; gap: 2px; }
+.movements-title { font-weight: 800; }
+.pill-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1px solid transparent; }
+.pill-friendly { background: rgba(85, 210, 117, 0.12); color: #7ef8b1; border-color: rgba(126, 248, 177, 0.35); }
+.pill-neutral { background: rgba(141, 150, 255, 0.15); color: #c8ccff; border-color: rgba(200, 204, 255, 0.35); }
+.pill-hostile { background: rgba(255, 155, 155, 0.12); color: #ffb3b3; border-color: rgba(255, 179, 179, 0.35); }
+.movements-content { margin-top: 12px; display: grid; gap: 16px; }
+.slots-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.slot-card { background: #0d1226; border: 1px solid #1e2a52; border-radius: 10px; padding: 12px; display: grid; gap: 4px; }
+.slot-label { font-size: 11px; opacity: .7; }
+.slot-value { font-size: 18px; font-weight: 800; }
+.slot-hint { font-size: 11px; opacity: .6; }
+.events-section { background: #0d1226; border: 1px solid #1e2a52; border-radius: 10px; padding: 12px; }
+.events-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.events-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.events-table th, .events-table td { border-bottom: 1px solid #243055; padding: 8px; font-size: 12px; }
+.events-table td { vertical-align: middle; }
+.mission-icon-cell { width: 32px; text-align: center; }
+.mission-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.04); }
+.muted.small { font-size: 11px; }
+
 .title-icon {
   width: 16px;
   height: 16px;
