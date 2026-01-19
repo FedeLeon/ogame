@@ -183,6 +183,77 @@ th { text-align: left; font-size: 12px; opacity: .9; }
 .mission-icon-cell { width: 32px; text-align: center; }
 .mission-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.04); }
 .muted.small { font-size: 11px; }
+.details-panel summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.panel-title { font-weight: 800; }
+.details-arrow { font-size: 14px; opacity: .7; }
+.planet-switcher { display: grid; gap: 10px; margin-top: 12px; }
+.planet-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #1f2854;
+  background: #0b1022;
+  text-decoration: none;
+  color: inherit;
+}
+.planet-chip:hover { background: #101a35; }
+.planet-chip.active { border-color: rgba(88, 120, 255, 0.8); box-shadow: 0 0 0 1px rgba(88,120,255,0.25); }
+.planet-chip .planet-name { font-weight: 700; }
+.planet-chip .planet-coords { margin-left: auto; opacity: .8; }
+.planet-details { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #1f2854; background: #0d1226; }
+.galaxy-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.galaxy-nav .btn.disabled { pointer-events: none; opacity: .5; }
+.galaxy-nav-title { text-align: center; display: grid; gap: 2px; }
+.galaxy-table-card { padding: 0; overflow: hidden; }
+.galaxy-table-header {
+  display: grid;
+  grid-template-columns: 70px minmax(180px, 1.4fr) minmax(180px, 1fr) minmax(150px, 1fr) minmax(160px, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+  background: #111a33;
+  border-bottom: 1px solid #243055;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  opacity: .85;
+}
+.galaxy-table-body { display: grid; }
+.galaxy-row {
+  display: grid;
+  grid-template-columns: 70px minmax(180px, 1.4fr) minmax(180px, 1fr) minmax(150px, 1fr) minmax(160px, 1fr);
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #1a2340;
+  background: #0b1022;
+}
+.galaxy-row:nth-child(even) { background: #0d1328; }
+.galaxy-row.own { background: linear-gradient(90deg, rgba(40,73,255,0.18), rgba(12,18,36,0.4)); }
+.galaxy-cell { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.galaxy-cell.position { justify-content: center; font-weight: 800; }
+.planet-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #8ecbff, #1c3c68);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+}
+.debris-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #8b7a6b, #3f3025);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+}
+.pill-inactive { background: rgba(129,138,255,0.15); color: #c8ccff; border-color: rgba(200,204,255,0.35); }
+.pill-inactive_long { background: rgba(96,118,255,0.2); color: #c8d4ff; border-color: rgba(162,180,255,0.35); }
+.pill-vacation { background: rgba(255,200,88,0.2); color: #ffe1a3; border-color: rgba(255,200,88,0.45); }
+.pill-banned { background: rgba(255,120,120,0.2); color: #ffb3b3; border-color: rgba(255,120,120,0.4); }
+.pill-admin { background: rgba(255,180,100,0.2); color: #ffd3a3; border-color: rgba(255,180,100,0.45); }
+.pill-noob { background: rgba(120,255,180,0.2); color: #b7ffd3; border-color: rgba(120,255,180,0.4); }
+.pill-strong { background: rgba(255,120,240,0.2); color: #f8c0ff; border-color: rgba(255,120,240,0.4); }
+.pill-outlaw { background: rgba(255,140,0,0.2); color: #ffd0a3; border-color: rgba(255,140,0,0.4); }
 
 .title-icon {
   width: 16px;

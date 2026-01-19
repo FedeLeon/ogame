@@ -442,6 +442,98 @@ Route::get('/empire', function () {
     ]);
 })->name('empire');
 
+Route::get('/galaxy', function (Request $request) {
+    $universe = OgameUniverse::getUniverse();
+    $region = OgameUniverse::getRegion();
+    if (! OgameUniverse::isConfigured()) {
+        return view('pages.galaxy', [
+            'galaxyId' => '—',
+            'systemId' => '—',
+            'rows' => [],
+            'ownCoords' => '—',
+            'ownPlanet' => '—',
+            'ownPos' => null,
+            'prevSystem' => null,
+            'nextSystem' => null,
+            'statusLabels' => [],
+        ]);
+    }
+
+    $latest = OgameOverviewSnapshot::query()
+        ->where('region', $region)
+        ->where('universe_id', $universe)
+        ->orderByDesc('fetched_at')
+        ->first();
+
+    $requestedGalaxy = (int) $request->query('galaxy', $latest?->galaxy['galaxy'] ?? 1);
+    $requestedSystem = (int) $request->query('system', $latest?->galaxy['system'] ?? 1);
+    $requestedGalaxy = max(1, $requestedGalaxy);
+    $requestedSystem = max(1, min(499, $requestedSystem));
+
+    $galaxyData = $latest?->galaxy ?? [];
+    $cookieEncrypted = AppSetting::query()->where('key', 'ogame.auth.' . $region . '.' . $universe . '.cookie')->value('value');
+    if ($cookieEncrypted) {
+        try {
+            $cookieHeader = decrypt($cookieEncrypted);
+            $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+            $baseUrl = rtrim(OgameUniverse::baseUrlFor($universe, $region), '/');
+            $galaxyUrl = $baseUrl . '/game/index.php?page=ingame&component=galaxy&galaxy=' . $requestedGalaxy . '&system=' . $requestedSystem;
+            $galaxyResponse = Http::withHeaders([
+                'Cookie' => $cookieHeader,
+                'User-Agent' => $userAgent,
+                'Accept' => 'text/html,application/xhtml+xml',
+            ])->timeout(30)->get($galaxyUrl);
+            if ($galaxyResponse->successful()) {
+                $galaxyData = OgameHtmlParser::parseGalaxyHtml((string) $galaxyResponse->body());
+            }
+        } catch (Throwable $e) {
+            Log::warning('Galaxy fetch failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    $rows = $galaxyData['rows'] ?? [];
+    $rowsByPos = [];
+    foreach ($rows as $row) {
+        if (! empty($row['position'])) {
+            $rowsByPos[(int) $row['position']] = $row;
+        }
+    }
+    $rowsOrdered = [];
+    for ($pos = 1; $pos <= 15; $pos++) {
+        $rowsOrdered[] = $rowsByPos[$pos] ?? ['position' => $pos];
+    }
+
+    $ownCoords = $latest?->meta['ogame-planet-coordinates'] ?? '—';
+    $ownPlanet = $latest?->meta['ogame-planet-name'] ?? '—';
+    $ownPos = null;
+    if (is_string($ownCoords) && preg_match('/:(\\d+)$/', $ownCoords, $coordsMatch)) {
+        $ownPos = (int) $coordsMatch[1];
+    }
+
+    $statusLabels = [
+        'inactive' => 'Inactiva',
+        'inactive_long' => 'Inactiva (iI)',
+        'vacation' => 'Vacaciones',
+        'banned' => 'Baneado',
+        'admin' => 'Admin',
+        'noob' => 'Noob',
+        'strong' => 'Fuerte',
+        'outlaw' => 'Forajido',
+    ];
+
+    return view('pages.galaxy', [
+        'galaxyId' => $galaxyData['galaxy'] ?? $requestedGalaxy,
+        'systemId' => $galaxyData['system'] ?? $requestedSystem,
+        'rows' => $rowsOrdered,
+        'ownCoords' => $ownCoords,
+        'ownPlanet' => $ownPlanet,
+        'ownPos' => $ownPos,
+        'prevSystem' => $requestedSystem > 1 ? $requestedSystem - 1 : null,
+        'nextSystem' => $requestedSystem < 499 ? $requestedSystem + 1 : null,
+        'statusLabels' => $statusLabels,
+    ]);
+})->name('galaxy');
+
 Route::post('/empire/sync', function () {
     \Artisan::call('ogame:sync-overview', ['--force' => true]);
     return back()->with('status', 'Sync ejecutado.');

@@ -118,6 +118,7 @@ class OgameHtmlParser
             '/class="galaxy_row"/i',
             '/data-row="\\d+"/i',
         ]);
+        $rows = self::extractGalaxyRows($body);
 
         return [
             'galaxy' => $galaxy,
@@ -126,6 +127,7 @@ class OgameHtmlParser
             'inactive_count' => $inactiveCount,
             'status_counts' => array_filter($statusCounts, static fn ($value) => $value > 0),
             'visible_slots' => $visibleSlots,
+            'rows' => $rows,
         ];
     }
 
@@ -409,5 +411,84 @@ class OgameHtmlParser
             }
         }
         return $attributes;
+    }
+
+    private static function extractGalaxyRows(string $body): array
+    {
+        $rows = [];
+        if (! preg_match_all('/<tr[^>]*(?:class="[^"]*(?:galaxyRow|galaxy_row)[^"]*"|data-row="\\d+"|id="galaxyRow-?\\d+")[^>]*>.*?<\\/tr>/is', $body, $matches)) {
+            return $rows;
+        }
+
+        foreach ($matches[0] as $rowHtml) {
+            $rowTag = '';
+            if (preg_match('/<tr[^>]*>/i', $rowHtml, $tagMatch)) {
+                $rowTag = $tagMatch[0];
+            }
+            $attrs = self::extractHtmlAttributes($rowTag);
+            $position = null;
+            if (isset($attrs['data-row'])) {
+                $position = (int) $attrs['data-row'];
+            } elseif (isset($attrs['id']) && preg_match('/galaxyRow-?(\\d+)/i', $attrs['id'], $idMatch)) {
+                $position = (int) $idMatch[1];
+            }
+
+            $planetName = self::extractFirstMatch($rowHtml, [
+                '/class="[^"]*planetname[^"]*"[^>]*>\\s*([^<]+)/i',
+                '/class="[^"]*planetName[^"]*"[^>]*>\\s*([^<]+)/i',
+                '/data-planet-name="([^"]+)"/i',
+            ]);
+            $playerName = self::extractFirstMatch($rowHtml, [
+                '/class="[^"]*playername[^"]*"[^>]*>\\s*([^<]+)/i',
+                '/class="[^"]*playerName[^"]*"[^>]*>\\s*([^<]+)/i',
+                '/data-player-name="([^"]+)"/i',
+            ]);
+            $debrisMetal = self::extractFirstMatch($rowHtml, [
+                '/data-debris-metal="([0-9\\.]+)/i',
+                '/data-recyclable-metal="([0-9\\.]+)/i',
+                '/class="[^"]*debrisMetal[^"]*"[^>]*>\\s*([^<]+)/i',
+            ]);
+            $debrisCrystal = self::extractFirstMatch($rowHtml, [
+                '/data-debris-crystal="([0-9\\.]+)/i',
+                '/data-recyclable-crystal="([0-9\\.]+)/i',
+                '/class="[^"]*debrisCrystal[^"]*"[^>]*>\\s*([^<]+)/i',
+            ]);
+
+            $statusFlags = [];
+            $statusPatterns = [
+                'inactive' => '/status_abbr_inactive/i',
+                'inactive_long' => '/status_abbr_longinactive/i',
+                'vacation' => '/status_abbr_vacation/i',
+                'banned' => '/status_abbr_banned/i',
+                'admin' => '/status_abbr_admin/i',
+                'noob' => '/status_abbr_noob/i',
+                'strong' => '/status_abbr_strong/i',
+                'outlaw' => '/status_abbr_outlaw/i',
+            ];
+            foreach ($statusPatterns as $flag => $pattern) {
+                if (preg_match($pattern, $rowHtml)) {
+                    $statusFlags[] = $flag;
+                }
+            }
+
+            $activity = null;
+            if (preg_match('/minute15/i', $rowHtml)) {
+                $activity = '15m';
+            } elseif (preg_match('/minute/i', $rowHtml)) {
+                $activity = 'activo';
+            }
+
+            $rows[] = [
+                'position' => $position,
+                'planet_name' => $planetName ? trim($planetName) : null,
+                'player_name' => $playerName ? trim($playerName) : null,
+                'debris_metal' => self::normalizeNumber($debrisMetal),
+                'debris_crystal' => self::normalizeNumber($debrisCrystal),
+                'status' => $statusFlags,
+                'activity' => $activity,
+            ];
+        }
+
+        return $rows;
     }
 }

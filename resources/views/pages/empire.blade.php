@@ -47,6 +47,17 @@
                 'food' => 'Alimentacion',
                 'darkmatter' => 'Materia oscura',
             ];
+            $selectedPlanetId = (string) request('planet', '');
+            $selectedPlanet = null;
+            foreach ($planets as $planet) {
+                if (! is_array($planet)) {
+                    continue;
+                }
+                if ((string) ($planet['id'] ?? '') === $selectedPlanetId) {
+                    $selectedPlanet = $planet;
+                    break;
+                }
+            }
         @endphp
         <div class="resource-bar">
             @foreach ($resourceOrder as $key => $label)
@@ -58,6 +69,47 @@
                     </div>
                 </div>
             @endforeach
+        </div>
+
+        <div class="card" style="margin-top:12px">
+            <details class="details-panel" open>
+                <summary>
+                    <div>
+                        <div class="panel-title">Planetas</div>
+                        <div class="muted">Selecciona un planeta para ver su info</div>
+                    </div>
+                    <span class="details-arrow">▼</span>
+                </summary>
+                @if (count($planets))
+                    <div class="planet-switcher">
+                        @foreach ($planets as $planet)
+                            @continue(! is_array($planet))
+                            @php
+                                $planetId = (string) ($planet['id'] ?? '');
+                                $planetName = $planet['name'] ?? 'Planeta';
+                                $planetCoords = $planet['coords'] ?? '';
+                                $isActive = $planetId !== '' && $planetId === $selectedPlanetId;
+                            @endphp
+                            <a class="planet-chip {{ $isActive ? 'active' : '' }}"
+                               href="{{ $planetId !== '' ? route('empire', ['planet' => $planetId]) : '#' }}">
+                                <span class="planet-icon"></span>
+                                <span class="planet-name">{{ $planetName }}</span>
+                                <span class="planet-coords mono">[{{ $planetCoords }}]</span>
+                            </a>
+                        @endforeach
+                    </div>
+                    <div class="planet-details">
+                        @if ($selectedPlanet)
+                            <div><strong>{{ $selectedPlanet['name'] ?? 'Planeta' }}</strong></div>
+                            <div class="mono">ID {{ $selectedPlanet['id'] ?? '—' }} · [{{ $selectedPlanet['coords'] ?? '—' }}]</div>
+                        @else
+                            <span class="muted">Sin planeta seleccionado.</span>
+                        @endif
+                    </div>
+                @else
+                    <p class="muted">Sin datos de planetas.</p>
+                @endif
+            </details>
         </div>
 
         @php
@@ -128,6 +180,7 @@
                             <span class="pill {{ $pill['class'] }}">{{ $pill['label'] }} {{ $pill['value'] }}</span>
                         @endforeach
                     </div>
+                    <span class="details-arrow">▼</span>
                 </summary>
                 <div class="movements-content">
                     <div class="slots-grid">
@@ -198,74 +251,6 @@
             </details>
         </div>
 
-        <div class="card" style="margin-top:12px">
-            <h3>
-                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 4a8 8 0 1 0 8 8 8 8 0 0 0-8-8Zm0 14a6 6 0 1 1 6-6 6 6 0 0 1-6 6Z"/><path fill="currentColor" d="M2 13c4-2 10-3 20-1v2c-10-2-16-1-20 1z"/></svg>
-                Planetas
-            </h3>
-            @if (count($planets))
-                <ul class="coord-list mono">
-                    @foreach ($planets as $planet)
-                        <li>{{ is_array($planet) ? implode(' ', $planet) : $planet }}</li>
-                    @endforeach
-                </ul>
-            @else
-                <p class="muted">Sin datos de planetas.</p>
-            @endif
-        </div>
 
-        <div class="card" style="margin-top:12px">
-            <h3>
-                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
-                Galaxia
-            </h3>
-            @if (count($galaxy))
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Campo</th>
-                            <th>Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($galaxy as $key => $value)
-                            <tr>
-                                <td>{{ $key }}</td>
-                                <td class="mono">{{ is_array($value) ? json_encode($value) : $value }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <p class="muted">Sin datos de galaxia.</p>
-            @endif
-        </div>
-
-        <div class="card" style="margin-top:12px">
-            <h3>
-                <svg class="title-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 7h16v2H4zm0 4h16v2H4zm0 4h16v2H4z"/></svg>
-                Meta etiquetas
-            </h3>
-            @if (count($meta))
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Campo</th>
-                            <th>Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($meta as $key => $value)
-                            <tr>
-                                <td>{{ $key }}</td>
-                                <td class="mono">{{ is_array($value) ? json_encode($value) : $value }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            @else
-                <p class="muted">Sin meta tags.</p>
-            @endif
-        </div>
     @endif
 @endsection
